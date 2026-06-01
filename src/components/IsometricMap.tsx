@@ -6,7 +6,7 @@
 import React, { useRef, useEffect, useState, MouseEvent, TouchEvent } from 'react';
 import { TileData, TerrainType, BuildingType } from '../types';
 import { BUILDINGS_CATALOG } from '../gameData';
-import { HelpCircle, X, Move, MousePointerClick, ZoomIn, Eye, Map } from 'lucide-react';
+import { HelpCircle, X, Move, MousePointerClick, ZoomIn, Eye, Map, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Target } from 'lucide-react';
 
 interface IsometricMapProps {
   grid: TileData[][];
@@ -117,120 +117,317 @@ const drawFlatStar = (ctx: CanvasRenderingContext2D, cx: number, cy: number, rOu
 const drawMiniPine = (ctx: CanvasRenderingContext2D, tx: number, ty: number, size: number, zoom: number) => {
   const r = size * 1.5 * zoom;
   ctx.save();
-  // Draw three concentric flat jagged star shapes / layers from above
-  ctx.fillStyle = '#0f2913'; // Outer dark green
-  drawFlatStar(ctx, tx, ty, r, r * 0.5, 8);
-  ctx.fillStyle = '#1b4a22'; // Middle green
-  drawFlatStar(ctx, tx, ty, r * 0.7, r * 0.35, 8);
-  ctx.fillStyle = '#2e7d32'; // Top light green
-  drawFlatStar(ctx, tx, ty, r * 0.4, r * 0.2, 8);
+  // Drop shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.13)';
+  ctx.beginPath();
+  ctx.ellipse(tx + 1.2*zoom, ty + 2.5*zoom, r*0.9, r*0.45, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Trunk
+  ctx.fillStyle = '#3a200a';
+  ctx.fillRect(tx - 0.7*zoom, ty, 1.4*zoom, r*0.65);
+
+  // Pine leaves - concentric multi-tiered stars with nice color variance and subtle highlights
+  ctx.fillStyle = '#051808'; // Deepest shadow bottom layer
+  drawFlatStar(ctx, tx, ty - 0.5*zoom, r * 1.05, r * 0.5, 6);
+  ctx.fillStyle = '#0a2710'; // Core layer
+  drawFlatStar(ctx, tx, ty - 2.2*zoom, r * 0.85, r * 0.4, 6);
+  ctx.fillStyle = '#113e19'; // Light mid layer
+  drawFlatStar(ctx, tx, ty - 3.8*zoom, r * 0.65, r * 0.3, 6);
+  ctx.fillStyle = '#1b5e26'; // Sunlit layer
+  drawFlatStar(ctx, tx, ty - 5.2*zoom, r * 0.45, r * 0.2, 6);
+  
+  // Highlight sunrise tip
+  ctx.fillStyle = '#8ce85d';
+  ctx.beginPath();
+  ctx.arc(tx - 0.3*zoom, ty - 5.8*zoom, r * 0.16, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 };
 
 const drawMiniOak = (ctx: CanvasRenderingContext2D, tx: number, ty: number, size: number, zoom: number) => {
   const r = size * 1.6 * zoom;
   ctx.save();
-  // Draw soft drop shadow
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+  // Drop shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
   ctx.beginPath();
-  ctx.arc(tx + 1 * zoom, ty + 1.5 * zoom, r, 0, Math.PI * 2);
+  ctx.ellipse(tx + 1.2*zoom, ty + 2.2*zoom, r*1.05, r*0.48, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Draw three overlapping circles for an organic, modern flat top-down look
-  ctx.fillStyle = '#1e3f11'; // Shadow layer
+  // Wooden trunk
+  ctx.fillStyle = '#4c2e1b';
+  ctx.fillRect(tx - 0.9*zoom, ty, 1.8*zoom, r * 0.55);
+
+  // Soft leafy puff circles with rich depth and light highlights
+  ctx.fillStyle = '#0d2205'; // Deep shadow
   ctx.beginPath();
-  ctx.arc(tx, ty, r, 0, Math.PI * 2);
+  ctx.arc(tx, ty - 1.8*zoom, r, 0, Math.PI * 2);
+  ctx.arc(tx + r*0.3, ty - r*0.5, r*0.7, 0, Math.PI*2);
   ctx.fill();
 
-  ctx.fillStyle = '#2d5a1b'; // Mid layer slightly shifted northwest
+  ctx.fillStyle = '#1d420c'; // Medium foliage
   ctx.beginPath();
-  ctx.arc(tx - 0.5 * zoom, ty - 0.5 * zoom, r * 0.85, 0, Math.PI * 2);
+  ctx.arc(tx - 0.5*zoom, ty - 2.8*zoom, r * 0.82, 0, Math.PI * 2);
+  ctx.arc(tx + r*0.1, ty - r*0.7, r*0.65, 0, Math.PI*2);
   ctx.fill();
 
-  ctx.fillStyle = '#417d2a'; // Highlight layer on top
+  ctx.fillStyle = '#336a18'; // Sunlit canopy
   ctx.beginPath();
-  ctx.arc(tx - 1.2 * zoom, ty - 1.2 * zoom, r * 0.65, 0, Math.PI * 2);
+  ctx.arc(tx - 1.2*zoom, ty - 3.8*zoom, r * 0.65, 0, Math.PI * 2);
+  ctx.arc(tx - 0.2*zoom, ty - r*0.9, r*0.52, 0, Math.PI*2);
   ctx.fill();
+
+  // Vibrant golden sunshine tips (top-left lit)
+  ctx.fillStyle = '#7ac037';
+  ctx.beginPath();
+  ctx.arc(tx - 1.9*zoom, ty - 4.5*zoom, r * 0.35, 0, Math.PI * 2);
+  ctx.arc(tx - 0.8*zoom, ty - r*1.1, r*0.28, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+};
+
+const drawMiniAutumnMaple = (ctx: CanvasRenderingContext2D, tx: number, ty: number, size: number, zoom: number) => {
+  const r = size * 1.5 * zoom;
+  ctx.save();
+  // Drop shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+  ctx.beginPath();
+  ctx.ellipse(tx + 1.2*zoom, ty + 2.4*zoom, r*1.05, r*0.48, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Wooden trunk
+  ctx.fillStyle = '#3a200a';
+  ctx.fillRect(tx - 0.8*zoom, ty, 1.6*zoom, r * 0.55);
+
+  // Beautiful cozy autumn gradient layers (deep amber-red up to brilliant golden-yellow!)
+  ctx.fillStyle = '#650900'; // Deep crimson auburn shadow
+  ctx.beginPath();
+  ctx.arc(tx, ty - 1.8*zoom, r, 0, Math.PI * 2);
+  ctx.arc(tx + r*0.3, ty - r*0.4, r*0.7, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.fillStyle = '#a63e0b'; // Warm burnt orange
+  ctx.beginPath();
+  ctx.arc(tx - 0.5*zoom, ty - 2.8*zoom, r * 0.82, 0, Math.PI * 2);
+  ctx.arc(tx + r*0.1, ty - r*0.7, r*0.62, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.fillStyle = '#d96c14'; // Bright amber
+  ctx.beginPath();
+  ctx.arc(tx - 1.2*zoom, ty - 3.8*zoom, r * 0.65, 0, Math.PI * 2);
+  ctx.arc(tx - 0.2*zoom, ty - r*0.9, r*0.5, 0, Math.PI*2);
+  ctx.fill();
+
+  // Bright golden-yellow sunshine spots
+  ctx.fillStyle = '#fbbf24';
+  ctx.beginPath();
+  ctx.arc(tx - 1.9*zoom, ty - 4.4*zoom, r * 0.35, 0, Math.PI * 2);
+  ctx.arc(tx - 0.8*zoom, ty - r*1.1, r*0.28, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+};
+
+const drawMiniBirch = (ctx: CanvasRenderingContext2D, tx: number, ty: number, size: number, zoom: number) => {
+  const r = size * 1.35 * zoom;
+  ctx.save();
+  // Drop shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+  ctx.beginPath();
+  ctx.ellipse(tx + 1.0*zoom, ty + 2.0*zoom, r*1.0, r*0.45, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // White paper bark trunk with fine dark knots
+  ctx.fillStyle = '#f8fafc'; // Pristine white-silver
+  ctx.fillRect(tx - 0.6*zoom, ty, 1.2*zoom, r * 0.65);
+  ctx.fillStyle = '#1e293b'; // Charcoal knots
+  ctx.fillRect(tx - 0.6*zoom, ty + r * 0.15, 0.5*zoom, 0.4*zoom);
+  ctx.fillRect(tx + 0.1*zoom, ty + r * 0.35, 0.5*zoom, 0.4*zoom);
+
+  // Delightful bright lime/chartreuse birch foliage layers
+  ctx.fillStyle = '#142f07'; // Core dark shadow
+  ctx.beginPath();
+  ctx.arc(tx, ty - 2.0*zoom, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#4c8c15'; // Lush medium green
+  ctx.beginPath();
+  ctx.arc(tx - 0.4*zoom, ty - 3.1*zoom, r * 0.82, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#84cc16'; // Fresh bright lime
+  ctx.beginPath();
+  ctx.arc(tx - 1.0*zoom, ty - 3.9*zoom, r * 0.62, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Golden spring sprout tip
+  ctx.fillStyle = '#ca8a04';
+  ctx.beginPath();
+  ctx.arc(tx - 1.5*zoom, ty - 4.3*zoom, r * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+
   ctx.restore();
 };
 
 const drawMiniHouse = (ctx: CanvasRenderingContext2D, tx: number, ty: number, zoom: number, roofColor = '#e25c5c', roofDarkColor = '#bf4343') => {
-  const w = 7 * zoom;
-  const h = 5 * zoom;
+  const w = 7.5 * zoom;
+  const h = 5.2 * zoom;
   ctx.save();
-  // Drop shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.06)';
-  ctx.fillRect(tx - w + 1 * zoom, ty - h + 1 * zoom, w * 2, h * 2);
-
-  // Two halves of the pitched roof
-  // Top half (bright roofColor)
-  ctx.fillStyle = roofColor;
+  // Shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.11)';
   ctx.beginPath();
-  ctx.moveTo(tx - w, ty);
-  ctx.lineTo(tx + w, ty);
-  ctx.lineTo(tx + w, ty - h);
-  ctx.lineTo(tx - w, ty - h);
-  ctx.closePath();
+  ctx.ellipse(tx + 1.8*zoom, ty + 2.8*zoom, w*1.2, h*1.1, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Bottom half (shaded roofDarkColor)
-  ctx.fillStyle = roofDarkColor;
-  ctx.beginPath();
-  ctx.moveTo(tx - w, ty);
-  ctx.lineTo(tx + w, ty);
-  ctx.lineTo(tx + w, ty + h);
-  ctx.lineTo(tx - w, ty + h);
-  ctx.closePath();
-  ctx.fill();
+  // Main white / cream stucco walls (extruded 3D base!)
+  ctx.fillStyle = '#fbfaf6';
+  ctx.strokeStyle = '#dfdbcf';
+  ctx.lineWidth = 0.5 * zoom;
+  ctx.fillRect(tx - w * 0.85, ty - h * 0.2, w * 1.7, h * 1.35);
+  ctx.strokeRect(tx - w * 0.85, ty - h * 0.2, w * 1.7, h * 1.35);
 
-  // White ridge line down the center
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 1 * zoom;
+  // Cozy historic timber-framed texture (Fachwerk!)
+  ctx.strokeStyle = '#4a2c11';
+  ctx.lineWidth = 0.65 * zoom;
   ctx.beginPath();
-  ctx.moveTo(tx - w, ty);
-  ctx.lineTo(tx + w, ty);
+  // Timber frame side braces and columns
+  ctx.moveTo(tx - w*0.8, ty - h*0.2);
+  ctx.lineTo(tx - w*0.4, ty + h*1.1);
+  ctx.moveTo(tx + w*0.8, ty - h*0.2);
+  ctx.lineTo(tx + w*0.4, ty + h*1.1);
+  ctx.moveTo(tx - w*0.1, ty - h*0.2);
+  ctx.lineTo(tx - w*0.1, ty + h*1.15);
   ctx.stroke();
 
-  // Tiny flat chimney block
-  ctx.fillStyle = '#5c3e21';
-  ctx.fillRect(tx + w * 0.4, ty - h * 0.7, 1.8 * zoom, 1.8 * zoom);
+  // Cozy yellow glowing windows + fine window frames
+  ctx.fillStyle = '#fef08a'; // Glowing light
+  ctx.fillRect(tx - w*0.4, ty + h*0.2, 1.8*zoom, 1.8*zoom);
+  ctx.fillRect(tx + w*0.15, ty + h*0.2, 1.8*zoom, 1.8*zoom);
+  ctx.strokeStyle = '#573010';
+  ctx.lineWidth = 0.4 * zoom;
+  ctx.strokeRect(tx - w*0.4, ty + h*0.2, 1.8*zoom, 1.8*zoom);
+  ctx.strokeRect(tx + w*0.15, ty + h*0.2, 1.8*zoom, 1.8*zoom);
+
+  // Two halves of the pitched roof
+  // Top slope (roofColor - bright)
+  ctx.fillStyle = roofColor;
+  ctx.beginPath();
+  ctx.moveTo(tx - w, ty - h * 0.2);
+  ctx.lineTo(tx + w, ty - h * 0.2);
+  ctx.lineTo(tx + w * 0.85, ty - h * 1.25);
+  ctx.lineTo(tx - w * 0.85, ty - h * 1.25);
+  ctx.closePath();
+  ctx.fill();
+
+  // Slate/tile details on the pitched roof (luxury texture lines!)
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+  ctx.lineWidth = 0.5 * zoom;
+  for (let rIdx = 1; rIdx <= 3; rIdx++) {
+    const fraction = rIdx / 4;
+    ctx.beginPath();
+    ctx.moveTo(tx - w * (1 - fraction * 0.15), ty - h * (0.2 + fraction * 1.05));
+    ctx.lineTo(tx + w * (1 - fraction * 0.15), ty - h * (0.2 + fraction * 1.05));
+    ctx.stroke();
+  }
+
+  // Bottom slope shading layer
+  ctx.fillStyle = roofDarkColor;
+  ctx.beginPath();
+  ctx.moveTo(tx - w, ty - h * 0.1);
+  ctx.lineTo(tx + w, ty - h * 0.1);
+  ctx.lineTo(tx + w, ty + h * 0.25);
+  ctx.lineTo(tx - w, ty + h * 0.25);
+  ctx.closePath();
+  ctx.fill();
+
+  // Stone chimney
+  ctx.fillStyle = '#5c5e62';
+  ctx.fillRect(tx + w * 0.35, ty - h * 1.4, 2 * zoom, 3.2 * zoom);
+  ctx.fillStyle = '#1e293b'; // inside pipe
+  ctx.fillRect(tx + w * 0.35, ty - h * 1.45, 2 * zoom, 0.6 * zoom);
+
+  // Smooth, cozy, animated rising smoke column!
+  const smokeOsc1 = 1 + Math.sin(Date.now() / 240) * 0.16;
+  const smokeOsc2 = 1 + Math.cos(Date.now() / 185) * 0.22;
+  const smokeX = tx + w * 0.45;
+  const smokeY = ty - h * 1.7;
+  
+  ctx.fillStyle = 'rgba(240, 240, 240, 0.42)';
+  ctx.beginPath();
+  ctx.arc(smokeX, smokeY, 1.8 * zoom * smokeOsc1, 0, Math.PI*2);
+  ctx.arc(smokeX + 2*zoom, smokeY - 3*zoom, 2.5 * zoom * smokeOsc2, 0, Math.PI*2);
+  ctx.fill();
+
   ctx.restore();
 };
 
 const drawMiniFactory = (ctx: CanvasRenderingContext2D, tx: number, ty: number, zoom: number) => {
-  const w = 9 * zoom;
-  const h = 7 * zoom;
+  const w = 9.5 * zoom;
+  const h = 7.5 * zoom;
   ctx.save();
   // Drop shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.08)';
-  ctx.fillRect(tx - w + 1.2 * zoom, ty - h + 1.2 * zoom, w * 2, h * 2);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
+  ctx.fillRect(tx - w + 1.5 * zoom, ty - h + 1.8 * zoom, w * 2.1, h * 2.1);
 
-  // Main factory roof building
-  ctx.fillStyle = '#475569';
-  ctx.fillRect(tx - w, ty - h * 0.5, w * 2, h);
+  // Red brick walls (Ancien regime / classic industrial feel!)
+  ctx.fillStyle = '#9a3412'; // Brick orange-brown
+  ctx.strokeStyle = '#641e06';
+  ctx.lineWidth = 0.5 * zoom;
+  ctx.fillRect(tx - w, ty - h * 0.25, w * 2, h * 1.25);
+  ctx.strokeRect(tx - w, ty - h * 0.25, w * 2, h * 1.25);
 
-  // Secondary building
-  ctx.fillStyle = '#334155';
-  ctx.fillRect(tx - w * 0.6, ty - h, w * 1.2, h * 0.7);
+  // Windows representing a real industrial hall
+  ctx.fillStyle = '#0f172a'; // dark window slots
+  for (let i = -2; i <= 2; i++) {
+    if (i === 0) continue;
+    ctx.fillRect(tx + i * w * 0.38 - 1*zoom, ty + h * 0.1, 2 * zoom, h * 0.55);
+    ctx.strokeStyle = '#fef08a';
+    ctx.lineWidth = 0.3 * zoom;
+    ctx.strokeRect(tx + i * w * 0.38 - 1*zoom, ty + h * 0.1, 2 * zoom, h * 0.55);
+  }
 
-  // Sawtooth roof style stripes from above
-  ctx.strokeStyle = '#64748b';
-  ctx.lineWidth = 1.2 * zoom;
-  for (let i = -3; i <= 3; i++) {
+  // Factory roof blocks (dark slate grey)
+  ctx.fillStyle = '#2d3748';
+  ctx.fillRect(tx - w * 1.05, ty - h * 0.85, w * 0.9, h * 0.6);
+  ctx.fillRect(tx, ty - h * 0.85, w * 0.9, h * 0.6);
+
+  // Sawtooth roof style ridges with zinc metallic borders
+  ctx.fillStyle = '#4a5568';
+  for (let i = 0; i < 2; i++) {
+    const rx = tx - w + i * w * 1.05;
     ctx.beginPath();
-    ctx.moveTo(tx + i * 2 * zoom, ty - h * 0.45);
-    ctx.lineTo(tx + i * 2 * zoom, ty + h * 0.45);
+    ctx.moveTo(rx, ty - h * 0.85);
+    ctx.lineTo(rx + w * 0.9, ty - h * 0.85);
+    ctx.lineTo(rx + w * 0.65, ty - h * 1.35); // Sawtooth peak
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 0.6 * zoom;
     ctx.stroke();
   }
 
-  // Large chimney circle (looking straight down into the pipe)
-  ctx.fillStyle = '#1e293b';
-  ctx.strokeStyle = '#da4444'; // Red-orange warning tip rim
-  ctx.lineWidth = 1 * zoom;
+  // Classic high brick smokestack (chimney tower!)
+  ctx.fillStyle = '#7c2d12'; // Rich brick chimney
+  ctx.fillRect(tx + w * 0.45, ty - h * 1.45, w * 0.35, h * 1.6);
+  ctx.strokeStyle = '#431407'; // Chimney brick frame
+  ctx.strokeRect(tx + w * 0.45, ty - h * 1.45, w * 0.35, h * 1.6);
+  
+  // Chimney crown / black band on top
+  ctx.fillStyle = '#111827';
+  ctx.fillRect(tx + w * 0.38, ty - h * 1.62, w * 0.48, h * 0.22);
+
+  // Dynamic shimmering industrial steam clouds!
+  const pulseScale = 1 + Math.sin(Date.now() / 280) * 0.14;
+  const puffY = ty - h * 2.2;
+  const steamX = tx + w * 0.62;
+  
+  ctx.fillStyle = 'rgba(220, 230, 240, 0.58)'; // Slightly blue-tinted heavy industrial steam
   ctx.beginPath();
-  ctx.arc(tx + w * 0.55, ty - h * 0.5, 2.5 * zoom, 0, Math.PI * 2);
+  ctx.arc(steamX, puffY, 3.2 * zoom * pulseScale, 0, Math.PI * 2);
+  ctx.arc(steamX + 2 * zoom, puffY - 4 * zoom, 4.4 * zoom * pulseScale, 0, Math.PI * 2);
+  ctx.arc(steamX - 3 * zoom, puffY - 2 * zoom, 2.8 * zoom * pulseScale, 0, Math.PI * 2);
   ctx.fill();
-  ctx.stroke();
 
   ctx.restore();
 };
@@ -238,20 +435,36 @@ const drawMiniFactory = (ctx: CanvasRenderingContext2D, tx: number, ty: number, 
 const drawMiniHayBale = (ctx: CanvasRenderingContext2D, tx: number, ty: number, zoom: number) => {
   const r = 3.6 * zoom;
   ctx.save();
+  // Drop shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.12)';
+  ctx.beginPath();
+  ctx.ellipse(tx + 0.8*zoom, ty + 1.2*zoom, r*1.05, r*0.5, 0, 0, Math.PI*2);
+  ctx.fill();
+
   // Straw colored flat round spiral
   ctx.fillStyle = '#d97706';
   ctx.beginPath();
   ctx.arc(tx, ty, r, 0, Math.PI * 2);
   ctx.fill();
 
-  // Dynamic light yellow rings/spiral
-  ctx.strokeStyle = '#fef08a';
+  // Straw highlights / texture
+  ctx.strokeStyle = '#fbbf24';
   ctx.lineWidth = 0.8 * zoom;
   ctx.beginPath();
-  ctx.arc(tx, ty, r * 0.7, 0, Math.PI * 2);
+  ctx.arc(tx, ty, r * 0.72, 0, Math.PI * 2);
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(tx, ty, r * 0.4, 0, Math.PI * 2);
+  ctx.arc(tx, ty, r * 0.42, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Fine bindings / twine loops
+  ctx.strokeStyle = '#78350f';
+  ctx.lineWidth = 0.5 * zoom;
+  ctx.beginPath();
+  ctx.moveTo(tx - r, ty);
+  ctx.lineTo(tx + r, ty);
+  ctx.moveTo(tx, ty - r);
+  ctx.lineTo(tx, ty + r);
   ctx.stroke();
   ctx.restore();
 };
@@ -504,7 +717,150 @@ export const IsometricMap: React.FC<IsometricMapProps> = ({
           const h = (HEX_H - 1) * zoom;
           const pts = getHexPts(cx, cy, w, h);
 
-          // Fill flat hexagon tile directly
+          const thickness = 11 * zoom;
+          const seed = getTileSeed(gx, gy);
+
+          // Draw the 3D board game block side panels first (overlapping from back to front!)
+          // ── 1. West Face Shading (pts[5] to pts[4])
+          ctx.beginPath();
+          ctx.moveTo(pts[5][0], pts[5][1]);
+          ctx.lineTo(pts[4][0], pts[4][1]);
+          ctx.lineTo(pts[4][0], pts[4][1] + thickness);
+          ctx.lineTo(pts[5][0], pts[5][1] + thickness);
+          ctx.closePath();
+          let wGrad = ctx.createLinearGradient(pts[5][0], pts[5][1], pts[4][0], pts[4][1] + thickness);
+          wGrad.addColorStop(0, '#2b1e18');
+          wGrad.addColorStop(1, '#1b120f');
+          ctx.fillStyle = wGrad;
+          ctx.fill();
+
+          // ── 2. Southwest Face Shading (pts[4] to pts[3])
+          ctx.beginPath();
+          ctx.moveTo(pts[4][0], pts[4][1]);
+          ctx.lineTo(pts[3][0], pts[3][1]);
+          ctx.lineTo(pts[3][0], pts[3][1] + thickness);
+          ctx.lineTo(pts[4][0], pts[4][1] + thickness);
+          ctx.closePath();
+          let swGrad = ctx.createLinearGradient(pts[4][0], pts[4][1], pts[3][0], pts[3][1] + thickness);
+          swGrad.addColorStop(0, '#36271e');
+          swGrad.addColorStop(1, '#221813');
+          ctx.fillStyle = swGrad;
+          ctx.fill();
+
+          // ── 3. Southeast Face Shading (pts[3] to pts[2])
+          ctx.beginPath();
+          ctx.moveTo(pts[3][0], pts[3][1]);
+          ctx.lineTo(pts[2][0], pts[2][1]);
+          ctx.lineTo(pts[2][0], pts[2][1] + thickness);
+          ctx.lineTo(pts[3][0], pts[3][1] + thickness);
+          ctx.closePath();
+          let seGrad = ctx.createLinearGradient(pts[3][0], pts[3][1], pts[2][0], pts[2][1] + thickness);
+          seGrad.addColorStop(0, '#4a362a');
+          seGrad.addColorStop(1, '#2d211a');
+          ctx.fillStyle = seGrad;
+          ctx.fill();
+
+          // ── 4. East Face Shading (pts[2] to pts[1])
+          ctx.beginPath();
+          ctx.moveTo(pts[2][0], pts[2][1]);
+          ctx.lineTo(pts[1][0], pts[1][1]);
+          ctx.lineTo(pts[1][0], pts[1][1] + thickness);
+          ctx.lineTo(pts[2][0], pts[2][1] + thickness);
+          ctx.closePath();
+          let eGrad = ctx.createLinearGradient(pts[2][0], pts[2][1], pts[1][0], pts[1][1] + thickness);
+          eGrad.addColorStop(0, '#533f32');
+          eGrad.addColorStop(1, '#33261e');
+          ctx.fillStyle = eGrad;
+          ctx.fill();
+
+          // ── 5. Geological strata details (lines and textures on the extruded sides)
+          ctx.strokeStyle = 'rgba(15, 8, 5, 0.25)';
+          ctx.lineWidth = 1 * zoom;
+          ctx.beginPath();
+          // Horizontal sedimentary clay/stone layer line
+          ctx.moveTo(pts[5][0], pts[5][1] + thickness * 0.45);
+          ctx.lineTo(pts[4][0], pts[4][1] + thickness * 0.45);
+          ctx.lineTo(pts[3][0], pts[3][1] + thickness * 0.45);
+          ctx.lineTo(pts[2][0], pts[2][1] + thickness * 0.45);
+          ctx.lineTo(pts[1][0], pts[1][1] + thickness * 0.45);
+          ctx.stroke();
+
+          // Rocky vertical joints or crevices
+          if (Math.abs(seed * 10) % 2 < 0.8) {
+            ctx.beginPath();
+            ctx.moveTo((pts[4][0] + pts[3][0])/2, (pts[4][1] + pts[3][1])/2);
+            ctx.lineTo((pts[4][0] + pts[3][0])/2, (pts[4][1] + pts[3][1])/2 + thickness);
+            ctx.stroke();
+          }
+          if (Math.abs(seed * 14) % 2 > 1.2) {
+            ctx.beginPath();
+            ctx.moveTo((pts[3][0] + pts[2][0])/2, (pts[3][1] + pts[2][1])/2);
+            ctx.lineTo((pts[3][0] + pts[2][0])/2, (pts[3][1] + pts[2][1])/2 + thickness);
+            ctx.stroke();
+          }
+
+          // Let dynamic green roots/vines drape over the edge of Meadows and Forests!
+          if (cell.terrain === 'Wiese' || cell.terrain === 'Auwald') {
+            ctx.fillStyle = cell.terrain === 'Auwald' ? '#224d1a' : '#458c28';
+            for (let rIdx = 0; rIdx < 2; rIdx++) {
+              const startX = pts[4][0] + (pts[2][0] - pts[4][0]) * (0.2 + (Math.abs(seed * (rIdx+1) * 31.3) % 0.6));
+              // approximate intermediate Y coordinate
+              const startY = pts[3][1] + (pts[2][1] - pts[3][1]) * ((startX - pts[3][0]) / (pts[2][0] - pts[3][0] || 1));
+              ctx.beginPath();
+              ctx.moveTo(startX, startY);
+              ctx.lineTo(startX + 1 * zoom, startY + (3 + (Math.abs(seed * (rIdx+5)) % 4.5)) * zoom);
+              ctx.lineTo(startX + 2 * zoom, startY);
+              ctx.closePath();
+              ctx.fill();
+            }
+          }
+
+          // Fill top hexagon face with luxury tactile gradient (creating lovely simulated highlights)
+          let fillCol: string | CanvasGradient = style.fill;
+
+          if (cell.terrain === 'Water') {
+            const phase = (gx * 0.4 + gy * 0.7) + elapsed * 1.4;
+            const flowW = Math.sin(phase) * 6;
+            const rOffset = Math.round(flowW);
+            // Dynamic shimmering river gradient
+            const waterGrad = ctx.createLinearGradient(cx - w * 0.5, cy - h * 0.5, cx + w * 0.5, cy + h * 0.5);
+            waterGrad.addColorStop(0, `rgb(${34 + rOffset}, ${110 + rOffset}, ${170 + Math.round(flowW * 0.5)})`);
+            waterGrad.addColorStop(0.5, `rgb(${15 + rOffset/2}, ${58 + rOffset}, ${112})`);
+            waterGrad.addColorStop(1, `rgb(${6}, ${32}, ${76})`);
+            fillCol = waterGrad;
+          } else if (cell.terrain === 'Wiese') {
+            const wieseGrad = ctx.createLinearGradient(cx - w*0.4, cy - h*0.5, cx + w*0.4, cy + h*0.5);
+            wieseGrad.addColorStop(0, '#82dc4d'); // Bright fresh green
+            wieseGrad.addColorStop(0.5, '#68cb39'); // Rich medium grass
+            wieseGrad.addColorStop(1, '#4c9b23');   // Shady field green
+            fillCol = wieseGrad;
+          } else if (cell.terrain === 'Auwald') {
+            const auwaldGrad = ctx.createLinearGradient(cx - w*0.4, cy - h*0.5, cx + w*0.4, cy + h*0.5);
+            auwaldGrad.addColorStop(0, '#2e6b26'); // High canopy green
+            auwaldGrad.addColorStop(0.6, '#1a4e14'); // Mid dense forest
+            auwaldGrad.addColorStop(1, '#0c2709');   // Shady base soil
+            fillCol = auwaldGrad;
+          } else if (cell.terrain === 'Acker') {
+            const ackerGrad = ctx.createLinearGradient(cx - w*0.4, cy - h*0.5, cx + w*0.4, cy + h*0.5);
+            ackerGrad.addColorStop(0, '#ebd86d'); // Warm sun
+            ackerGrad.addColorStop(0.5, '#dcb742'); // Deep golden wheat
+            ackerGrad.addColorStop(1, '#ba8a24');   // Harvest soil ochre
+            fillCol = ackerGrad;
+          } else if (cell.terrain === 'Siedlung') {
+            const siedlungGrad = ctx.createLinearGradient(cx - w*0.4, cy - h*0.4, cx + w*0.4, cy + h*0.4);
+            siedlungGrad.addColorStop(0, '#fc9855'); // Sunny clay tile
+            siedlungGrad.addColorStop(0.5, '#e07638'); // Brick red
+            siedlungGrad.addColorStop(1, '#a1481b');   // Warm deep terracotta shadows
+            fillCol = siedlungGrad;
+          } else if (cell.terrain === 'Gewerbe') {
+            const gewerbeGrad = ctx.createLinearGradient(cx - w*0.4, cy - h*0.4, cx + w*0.4, cy + h*0.4);
+            gewerbeGrad.addColorStop(0, '#a5b2b6'); // Zinc / silver metal highlights
+            gewerbeGrad.addColorStop(0.5, '#808c90'); // Dark gray slate
+            gewerbeGrad.addColorStop(1, '#535c5f');   // Deep anthracite metal shadows
+            fillCol = gewerbeGrad;
+          }
+
+          // Render top hexagon face
           ctx.beginPath();
           ctx.moveTo(pts[0][0], pts[0][1]);
           for (let i = 1; i < 6; i++) {
@@ -512,24 +868,12 @@ export const IsometricMap: React.FC<IsometricMapProps> = ({
           }
           ctx.closePath();
 
-          let fillCol = style.fill;
-
-          // Water ripple color animation
-          if (cell.terrain === 'Water') {
-            const phase = (gx * 0.4 + gy * 0.7) + elapsed * 1.4;
-            const flowW = Math.sin(phase) * 6;
-            const rOffset = Math.round(flowW);
-            fillCol = `rgb(${58 + rOffset}, ${130 + rOffset}, ${190 + Math.round(flowW * 0.5)})`;
-          }
+          ctx.fillStyle = fillCol;
+          ctx.fill();
 
           if (isHov && !isSel) {
-            ctx.fillStyle = fillCol;
-            ctx.fill();
-            // Solid flat overlay highlight
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-            ctx.fill();
-          } else {
-            ctx.fillStyle = fillCol;
+            // Soft glowing white overlay highlight on hover
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
             ctx.fill();
           }
 
@@ -543,77 +887,269 @@ export const IsometricMap: React.FC<IsometricMapProps> = ({
           ctx.closePath();
           ctx.clip();
 
-          const seed = getTileSeed(gx, gy);
-
           if (cell.terrain === 'Wiese') {
-            // Draw scattered grasses and a rare wild daisy
-            const count = Math.floor(1 + Math.abs(seed * 4) % 3); // 1 to 3 grasses
-            for (let i = 0; i < count; i++) {
-              const gxOff = Math.sin(seed + i * 1.7) * 12 * zoom;
-              const gyOff = Math.cos(seed + i * 2.3) * 12 * zoom;
-              drawMiniGrass(ctx, cx + gxOff, cy + gyOff, zoom, '#418224');
+            // Soft paper-like grass texture / canvas noise
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+            for (let gIdx = 0; gIdx < 12; gIdx++) {
+              const sX = cx + Math.sin(seed + gIdx) * 20 * zoom;
+              const sY = cy + Math.cos(seed * 1.4 + gIdx) * 20 * zoom;
+              ctx.fillRect(sX, sY, 1.5 * zoom, 1.5 * zoom);
             }
-            if (Math.abs(seed * 10) % 2 < 0.7) {
-              const fX = Math.sin(seed + 9.9) * 10 * zoom;
-              const fY = Math.cos(seed + 4.4) * 10 * zoom;
+
+            // Draw rolling topography contour ridges
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+            ctx.lineWidth = 1.0 * zoom;
+            ctx.beginPath();
+            ctx.arc(cx - 15*zoom, cy - 15*zoom, 25*zoom, 0, Math.PI * 0.5);
+            ctx.stroke();
+
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.04)';
+            ctx.beginPath();
+            ctx.arc(cx + 10*zoom, cy + 10*zoom, 20*zoom, Math.PI, Math.PI * 1.5);
+            ctx.stroke();
+
+            // Clustered wildflowers (poppies, lavender, etc.)
+            const count = Math.floor(2 + Math.abs(seed * 4) % 3);
+            for (let i = 0; i < count; i++) {
+              const gxOff = Math.sin(seed + i * 1.7) * 15 * zoom;
+              const gyOff = Math.cos(seed + i * 2.3) * 15 * zoom;
+              drawMiniGrass(ctx, cx + gxOff, cy + gyOff, zoom, '#225412');
+            }
+
+            // A tiny colorful wild bloom flowerbed
+            if (Math.abs(seed * 10) % 2 < 0.92) {
+              const fX = Math.sin(seed + 9.9) * 12 * zoom;
+              const fY = Math.cos(seed + 4.4) * 12 * zoom;
               drawMiniFlower(ctx, cx + fX, cy + fY, zoom);
             }
           } else if (cell.terrain === 'Auwald') {
-            // Draw multiple cute flat organic trees
-            const treeCount = Math.floor(2 + Math.abs(seed * 5) % 3); // 2 to 4 trees
+            // Forest floor shading
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 22 * zoom, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw multiple high-fidelity mixed trees
+            const treeCount = Math.floor(3 + Math.abs(seed * 6) % 3);
             for (let i = 0; i < treeCount; i++) {
-              const gxOff = Math.sin(seed * 2 + i * 3.1) * 14 * zoom;
-              const gyOff = Math.cos(seed * 1.5 + i * 2.5) * 14 * zoom;
-              const isPine = (Math.abs(seed * 15 + i * 9) % 2) > 0.8;
-              if (isPine) {
-                drawMiniPine(ctx, cx + gxOff, cy + gyOff, 4 + (Math.abs(seed * 7 + i) % 2), zoom);
+              const gxOff = Math.sin(seed * 2 + i * 3.1) * 15 * zoom;
+              const gyOff = Math.cos(seed * 1.5 + i * 2.5) * 15 * zoom;
+              
+              const speciesVal = Math.abs(seed * 22.7 + i * 7.9) % 1;
+              const treeSize = 3.2 + (Math.abs(seed * 5 + i) % 2.0);
+              
+              if (speciesVal < 0.28) {
+                drawMiniPine(ctx, cx + gxOff, cy + gyOff, treeSize, zoom);
+              } else if (speciesVal < 0.55) {
+                drawMiniOak(ctx, cx + gxOff, cy + gyOff, treeSize, zoom);
+              } else if (speciesVal < 0.8) {
+                drawMiniAutumnMaple(ctx, cx + gxOff, cy + gyOff, treeSize, zoom);
               } else {
-                drawMiniOak(ctx, cx + gxOff, cy + gyOff, 3.5 + (Math.abs(seed * 5 + i) % 2.5), zoom);
+                drawMiniBirch(ctx, cx + gxOff, cy + gyOff, treeSize, zoom);
               }
             }
           } else if (cell.terrain === 'Acker') {
-            // Neat flat parallel tractor ridges from above
-            ctx.strokeStyle = 'rgba(74, 45, 10, 0.08)';
-            ctx.lineWidth = 1 * zoom;
-            const ridgCount = 6;
-            for (let i = -ridgCount; i <= ridgCount; i++) {
+            // Patchwork farm layout: split the field into two textures (tilled brown loam and golden wheat)
+            ctx.save();
+            
+            // Draw field half 1 (diagonal wheat furrows)
+            ctx.beginPath();
+            ctx.rect(cx - 28*zoom, cy - w*zoom, 28*zoom, w*2*zoom);
+            ctx.clip();
+            
+            ctx.strokeStyle = 'rgba(84, 52, 25, 0.28)';
+            ctx.lineWidth = 1.8 * zoom;
+            for (let j = -7; j <= 7; j++) {
+              const off = j * 4.5 * zoom;
               ctx.beginPath();
-              const offset = i * 6 * zoom;
-              ctx.moveTo(cx - 25 * zoom + offset, cy - 25 * zoom);
-              ctx.lineTo(cx - 25 * zoom + offset, cy + 25 * zoom);
+              ctx.moveTo(cx - 35*zoom + off, cy - 50*zoom);
+              ctx.lineTo(cx + off, cy + 50*zoom);
               ctx.stroke();
             }
-            // Draw a tiny hay bale
-            if (Math.abs(seed * 8) % 3 < 1.2) {
-              const bX = Math.sin(seed + 1.2) * 10 * zoom;
-              const bY = Math.cos(seed + 2.1) * 10 * zoom;
+            
+            // Sprinkled golden grains
+            ctx.fillStyle = '#fbbf24';
+            for (let sIdx = 0; sIdx < 16; sIdx++) {
+              const sX = cx - (4 + (Math.abs(seed * sIdx * 5.3) % 22)) * zoom;
+              const sY = cy + (-22 + (Math.abs(seed * sIdx * 9.1) % 44)) * zoom;
+              ctx.beginPath();
+              ctx.arc(sX, sY, 1.2*zoom, 0, Math.PI*2);
+              ctx.fill();
+            }
+            ctx.restore();
+
+            // Draw field half 2 (tilled soil rows with green crop shoots!)
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(cx, cy - w*zoom, 28*zoom, w*2*zoom);
+            ctx.clip();
+            
+            // Deep rich earthen background
+            ctx.fillStyle = '#78350f';
+            ctx.fillRect(cx, cy - w*zoom, 28*zoom, w*2*zoom);
+            
+            // Parallel crops
+            ctx.strokeStyle = '#16a34a';
+            ctx.lineWidth = 2.4 * zoom;
+            ctx.setLineDash([3 * zoom, 4.2 * zoom]);
+            for (let j = -3; j <= 6; j++) {
+              const off = j * 6.2 * zoom;
+              ctx.beginPath();
+              ctx.moveTo(cx + off, cy - 42*zoom);
+              ctx.lineTo(cx + off - 8*zoom, cy + 42*zoom);
+              ctx.stroke();
+            }
+            ctx.setLineDash([]);
+            ctx.restore();
+
+            // Dividing dirt road / pathway with shrubs
+            ctx.strokeStyle = '#854d0e';
+            ctx.lineWidth = 1.5 * zoom;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - 45*zoom);
+            ctx.lineTo(cx, cy + 45*zoom);
+            ctx.stroke();
+
+            ctx.fillStyle = '#166534';
+            for (let i = 0; i < 2; i++) {
+              const bushY = cy + (-20 + i * 35 + Math.abs(seed * 7) % 12) * zoom;
+              ctx.beginPath();
+              ctx.arc(cx, bushY, 2.2*zoom, 0, Math.PI*2);
+              ctx.fill();
+            }
+
+            // Draw a detailed hay bale
+            if (Math.abs(seed * 9) % 3 < 1.35) {
+              const bX = Math.sin(seed + 1.2) * 12 * zoom;
+              const bY = Math.cos(seed + 2.1) * 12 * zoom;
               drawMiniHayBale(ctx, cx + bX, cy + bY, zoom);
             }
           } else if (cell.terrain === 'Siedlung') {
-            // Draw flat red and orange roof cottage houses from above
-            const houseCount = Math.floor(1 + Math.abs(seed * 4) % 2); // 1 to 2 houses
-            const roofs = ['#e25c5c', '#ed8936', '#f59e0b'];
-            const darkRoofs = ['#bf4343', '#c05621', '#d97706'];
+            // Neat winding beige / grey cobblestone pathways
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2.6 * zoom;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(cx - 15*zoom, cy - 5*zoom);
+            ctx.bezierCurveTo(cx - 2*zoom, cy - 8*zoom, cx + 2*zoom, cy + 10*zoom, cx + 15*zoom, cy + 4*zoom);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2.0 * zoom;
+            ctx.stroke();
+
+            // Draw cozy cottage houses
+            const houseCount = Math.floor(2 + Math.abs(seed * 5) % 2); // 2 to 3 houses for village feel
+            const roofs = ['#ef4444', '#f97316', '#3f3f46']; // Terracotta, Brick red, Slate grey roofs
+            const darkRoofs = ['#b91c1c', '#c2410c', '#18181b'];
             for (let i = 0; i < houseCount; i++) {
-              const gxOff = Math.sin(seed * 11 + i * 5.3) * 12 * zoom;
-              const gyOff = Math.cos(seed * 7 + i * 8.9) * 12 * zoom;
-              const rIdx = Math.floor(Math.abs(seed * (i + 1) * 3) % roofs.length);
+              const gxOff = Math.sin(seed * 11 + i * 4.7) * 14 * zoom;
+              const gyOff = Math.cos(seed * 7 + i * 8.3) * 14 * zoom;
+              const rIdx = Math.floor(Math.abs(seed * (i + 1) * 4) % roofs.length);
               drawMiniHouse(ctx, cx + gxOff, cy + gyOff, zoom, roofs[rIdx], darkRoofs[rIdx]);
             }
           } else if (cell.terrain === 'Gewerbe') {
-            // Draw flat factory blocks
+            // Concrete ground tiles with oil spills / grunge
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(cx - 25*zoom, cy - 25*zoom, 50*zoom, 50*zoom);
+            
+            // Grid tiles
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.lineWidth = 0.8 * zoom;
+            for (let i = -20; i <= 20; i += 10) {
+              ctx.beginPath();
+              ctx.moveTo(cx + i * zoom, cy - 25 * zoom);
+              ctx.lineTo(cx + i * zoom, cy + 25 * zoom);
+              ctx.moveTo(cx - 25 * zoom, cy + i * zoom);
+              ctx.lineTo(cx + 25 * zoom, cy + i * zoom);
+              ctx.stroke();
+            }
+
+            // Hazard stripe lane
+            ctx.strokeStyle = '#eab308';
+            ctx.lineWidth = 1.6 * zoom;
+            ctx.setLineDash([2 * zoom, 2.5 * zoom]);
+            ctx.beginPath();
+            ctx.moveTo(cx - 15*zoom, cy - 15*zoom);
+            ctx.lineTo(cx + 15*zoom, cy - 15*zoom);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Industrial cargo boxes & pipeline
+            ctx.fillStyle = '#ca8a04'; // Wood crates
+            ctx.fillRect(cx - 14 * zoom, cy + 6 * zoom, 4 * zoom, 4 * zoom);
+            ctx.strokeRect(cx - 14 * zoom, cy + 6 * zoom, 4 * zoom, 4 * zoom);
+            ctx.fillStyle = '#d97706';
+            ctx.fillRect(cx - 9 * zoom, cy + 8 * zoom, 4 * zoom, 4 * zoom);
+            ctx.strokeRect(cx - 9 * zoom, cy + 8 * zoom, 4 * zoom, 4 * zoom);
+
+            // Grey piping running across
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.5 * zoom;
+            ctx.beginPath();
+            ctx.moveTo(cx - 22*zoom, cy + 18*zoom);
+            ctx.lineTo(cx + 22*zoom, cy + 18*zoom);
+            ctx.stroke();
+
+            // Pipes joint connectors
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(cx - 4*zoom, cy + 16.5*zoom, 2.5*zoom, 3*zoom);
+            ctx.fillRect(cx + 8*zoom, cy + 16.5*zoom, 2.5*zoom, 3*zoom);
+
             drawMiniFactory(ctx, cx, cy, zoom);
           } else if (cell.terrain === 'Water') {
-            // Draw curved river animated ripples
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            // High-fidelity stony embankments
+            ctx.fillStyle = '#c5bbae';
+            ctx.beginPath();
+            ctx.moveTo(pts[0][0], pts[0][1]);
+            for (let i = 1; i < 6; i++) {
+              ctx.lineTo(pts[i][0], pts[i][1]);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            // Layered water body slightly inset
+            const iw = w - 3.2 * zoom;
+            const ih = h - 3.2 * zoom;
+            const ipts = getHexPts(cx, cy, iw, ih);
+
+            const phase = (gx * 0.4 + gy * 0.7) + elapsed * 1.4;
+            const flowW = Math.sin(phase) * 6;
+            const rOffset = Math.round(flowW);
+            
+            const waterGrad = ctx.createLinearGradient(cx - iw, cy - ih, cx + iw, cy + ih);
+            waterGrad.addColorStop(0, `rgb(${34 + rOffset}, ${110 + rOffset}, ${170 + Math.round(flowW * 0.5)})`);
+            waterGrad.addColorStop(0.5, `rgb(${15 + rOffset/2}, ${58 + rOffset}, ${112})`);
+            waterGrad.addColorStop(1, `rgb(${6}, ${32}, ${76})`);
+
+            ctx.fillStyle = waterGrad;
+            ctx.beginPath();
+            ctx.moveTo(ipts[0][0], ipts[0][1]);
+            for (let i = 1; i < 6; i++) {
+              ctx.lineTo(ipts[i][0], ipts[i][1]);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            // Draw sparkling sun glints and flowing animated current ripples
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
             ctx.lineWidth = 1 * zoom;
             const ripples = 2;
             for (let i = 0; i < ripples; i++) {
-              const ph = (elapsed * 1.6 + seed * 3 + i * Math.PI) % (Math.PI * 2);
-              const rx = Math.cos(ph) * 10 * zoom;
-              const ry = Math.sin(ph) * 8 * zoom;
+              const ph = (elapsed * 1.5 + seed * 3.5 + i * Math.PI) % (Math.PI * 2);
+              const rx = Math.cos(ph) * 11 * zoom;
+              const ry = Math.sin(ph) * 7 * zoom;
               ctx.beginPath();
-              ctx.arc(cx + rx, cy + ry, 4 * zoom, 0, Math.PI, false);
+              ctx.arc(cx + rx, cy + ry, 3.8 * zoom, 0, Math.PI, false);
+              ctx.stroke();
+            }
+
+            // High contrast sun reflection glitter curves
+            if (Math.abs(seed * 11) % 2 < 1.0) {
+              ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+              ctx.lineWidth = 1.2 * zoom;
+              ctx.beginPath();
+              ctx.arc(cx - 5*zoom, cy - 4*zoom, 2.5*zoom, Math.PI*1.1, Math.PI*1.4);
               ctx.stroke();
             }
           }
@@ -685,6 +1221,27 @@ export const IsometricMap: React.FC<IsometricMapProps> = ({
           ctx.strokeStyle = isSel ? '#10b981' : 'rgba(74, 53, 32, 0.12)';
           ctx.lineWidth = isSel ? 2.5 * zoom : isHov ? 1.5 * zoom : 0.8 * zoom;
           ctx.stroke();
+
+          // Modern Bevel Highlight & Shadow (simulating high-fidelity volumetric blocks!)
+          ctx.save();
+          // Northwest highlight
+          ctx.beginPath();
+          ctx.moveTo(pts[5][0], pts[5][1]);
+          ctx.lineTo(pts[0][0], pts[0][1]);
+          ctx.lineTo(pts[1][0], pts[1][1]);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.38)';
+          ctx.lineWidth = 1.2 * zoom;
+          ctx.stroke();
+
+          // Southeast shadow
+          ctx.beginPath();
+          ctx.moveTo(pts[2][0], pts[2][1]);
+          ctx.lineTo(pts[3][0], pts[3][1]);
+          ctx.lineTo(pts[4][0], pts[4][1]);
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+          ctx.lineWidth = 1.0 * zoom;
+          ctx.stroke();
+          ctx.restore();
 
           // Draw crucial strategic overlay indicators when overlay layers are active
           if (activeOverlay !== 'none') {
@@ -1278,48 +1835,157 @@ export const IsometricMap: React.FC<IsometricMapProps> = ({
         </div>
       </div>
 
-      {/* On-screen Zoom Control for Tablet touch ease */}
-      <div className="absolute bottom-4 left-4 z-40 bg-parch-0/95 border-2 border-ink-1 rounded-xl flex items-center gap-3.5 p-2 shadow-xl scale-95 sm:scale-100">
-        <button
-          onClick={() => setZoom(prev => Math.max(0.65, prev - 0.15))}
-          className="w-11 h-11 rounded-lg bg-parch-2 active:bg-parch-3 hover:border-ink-1 text-ink-0 font-bold text-xl flex items-center justify-center border border-ink-1/25 shadow-sm transition-all cursor-pointer"
-          title="Zoom out"
-        >
-          −
-        </button>
-        <span className="font-mono text-xs text-ink-1 font-bold w-14 text-center select-none">
-          {Math.round(zoom * 100)}%
-        </span>
-        <button
-          onClick={() => setZoom(prev => Math.min(1.8, prev + 0.15))}
-          className="w-11 h-11 rounded-lg bg-parch-2 active:bg-parch-3 hover:border-ink-1 text-ink-0 font-bold text-xl flex items-center justify-center border border-ink-1/25 shadow-sm transition-all cursor-pointer"
-          title="Zoom in"
-        >
-          +
-        </button>
-        <button
-          onClick={() => {
-            const container = containerRef.current;
-            if (container) {
-              setZoom(1.1);
-              setDragOffset({
-                x: (container.clientWidth - 16 * HEX_W) / 2 + 50,
-                y: (container.clientHeight - 16 * HEX_H * 0.75) / 2 + 30,
-              });
-            }
-          }}
-          className="px-3 h-10 rounded bg-parch-3 active:bg-parch-4 hover:border-ink-1 text-ink-0 flex items-center justify-center text-xs font-serif font-semibold border border-ink-1/20 shadow-sm transition-colors"
-        >
-          Zentrieren
-        </button>
-        <button
-          onClick={() => setShowShortcuts(true)}
-          className="px-3 h-10 rounded bg-parch-3 active:bg-parch-4 hover:border-ink-1 text-ink-0 flex items-center justify-center text-xs font-serif font-semibold border border-ink-1/20 shadow-sm gap-1 transition-colors"
-          title="Spielsteuerung & Karteerklärung anzeigen"
-        >
-          <HelpCircle size={14} className="text-ink-2" />
-          <span>Hilfe</span>
-        </button>
+      {/* On-screen Zoom & D-pad Navigation Controls */}
+      <div 
+        className="absolute bottom-4 left-4 z-40 bg-parch-0/95 border-2 border-ink-1 rounded-xl flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 p-3 shadow-xl scale-90 sm:scale-100 max-w-[340px] sm:max-w-none"
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+      >
+        {/* Navigation D-pad */}
+        <div className="flex flex-col items-center gap-1.5 border-b sm:border-b-0 sm:border-r border-ink-1/15 pb-2.5 sm:pb-0 sm:pr-3.5">
+          <span className="font-mono text-[8px] text-ink-3 tracking-wider uppercase select-none font-bold">
+            Navigieren
+          </span>
+          <div className="grid grid-cols-3 gap-1 w-[90px] h-[90px] shrink-0">
+            {/* Row 1 */}
+            <div />
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setDragOffset(prev => ({ ...prev, y: prev.y + 130 }));
+              }}
+              className="w-7 h-7 rounded-md bg-parch-2 active:bg-parch-3 hover:border-ink-1 text-ink-0 flex items-center justify-center border border-ink-1/25 shadow-sm transition-all cursor-pointer select-none"
+              title="Karte nach oben verschieben"
+            >
+              <ArrowUp size={14} />
+            </button>
+            <div />
+
+            {/* Row 2 */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setDragOffset(prev => ({ ...prev, x: prev.x + 130 }));
+              }}
+              className="w-7 h-7 rounded-md bg-parch-2 active:bg-parch-3 hover:border-ink-1 text-ink-0 flex items-center justify-center border border-ink-1/25 shadow-sm transition-all cursor-pointer select-none"
+              title="Karte nach links verschieben"
+            >
+              <ArrowLeft size={14} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const container = containerRef.current;
+                if (container) {
+                  const targetZoom = 1.15;
+                  setZoom(targetZoom);
+                  const targetGx = 10;
+                  const targetGy = 8;
+                  const col_offset = (targetGy % 2) * HEX_W * 0.5;
+                  const cx_grid = targetGx * HEX_W + col_offset + HEX_W * 0.5;
+                  const cy_grid = targetGy * HEX_H * 0.75 + HEX_H * 0.5;
+                  setDragOffset({
+                    x: container.clientWidth / 2 - cx_grid * targetZoom,
+                    y: container.clientHeight / 2 - cy_grid * targetZoom,
+                  });
+                  onSelectTile(10, 8);
+                }
+              }}
+              className="w-7 h-7 rounded-md bg-parch-3 hover:bg-parch-4 active:bg-parch-4 border border-ink-1/25 hover:border-ink-1 text-ink-1 flex items-center justify-center shadow-sm transition-all cursor-pointer select-none"
+              title="Dürener Stadtzentrum (Zentrum) fokussieren"
+            >
+              <Target size={13} className="text-ink-1 animate-pulse" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setDragOffset(prev => ({ ...prev, x: prev.x - 130 }));
+              }}
+              className="w-7 h-7 rounded-md bg-parch-2 active:bg-parch-3 hover:border-ink-1 text-ink-0 flex items-center justify-center border border-ink-1/25 shadow-sm transition-all cursor-pointer select-none"
+              title="Karte nach rechts verschieben"
+            >
+              <ArrowRight size={14} />
+            </button>
+
+            {/* Row 3 */}
+            <div />
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setDragOffset(prev => ({ ...prev, y: prev.y - 130 }));
+              }}
+              className="w-7 h-7 rounded-md bg-parch-2 active:bg-parch-3 hover:border-ink-1 text-ink-0 flex items-center justify-center border border-ink-1/25 shadow-sm transition-all cursor-pointer select-none"
+              title="Karte nach unten verschieben"
+            >
+              <ArrowDown size={14} />
+            </button>
+            <div />
+          </div>
+        </div>
+
+        {/* Action Controls & Zoom Selection */}
+        <div className="flex flex-col gap-2.5 min-w-[190px] sm:min-w-[210px] justify-center">
+          {/* Zoom adjustment row */}
+          <div className="flex items-center justify-between border-b border-ink-1/10 pb-2">
+            <span className="font-mono text-[8px] text-ink-3 tracking-wider uppercase font-bold select-none">Zoom</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setZoom(prev => Math.max(0.65, prev - 0.15));
+                }}
+                className="w-8 h-8 rounded-lg bg-parch-2 active:bg-parch-3 hover:border-ink-1 text-ink-0 font-bold text-base flex items-center justify-center border border-ink-1/25 shadow-sm transition-all cursor-pointer select-none"
+                title="Herauszoomen"
+              >
+                −
+              </button>
+              <span className="font-mono text-xs text-ink-1 font-bold w-12 text-center select-none">
+                {Math.round(zoom * 100)}%
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setZoom(prev => Math.min(1.8, prev + 0.15));
+                }}
+                className="w-8 h-8 rounded-lg bg-parch-2 active:bg-parch-3 hover:border-ink-1 text-ink-0 font-bold text-base flex items-center justify-center border border-ink-1/25 shadow-sm transition-all cursor-pointer select-none"
+                title="Heranzoomen"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {/* Quick-Action row */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const container = containerRef.current;
+                if (container) {
+                  setZoom(1.1);
+                  setDragOffset({
+                    x: (container.clientWidth - 16 * HEX_W) / 2 + 50,
+                    y: (container.clientHeight - 16 * HEX_H * 0.75) / 2 + 30,
+                  });
+                }
+              }}
+              className="flex-1 h-9 rounded-lg bg-parch-3 active:bg-parch-4 hover:border-ink-1 text-ink-0 flex items-center justify-center text-xs font-serif font-semibold border border-ink-1/20 shadow-sm transition-colors cursor-pointer select-none"
+            >
+              Zentrieren
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowShortcuts(true);
+              }}
+              className="flex-1 h-9 rounded-lg bg-parch-3 active:bg-parch-4 hover:border-ink-1 text-ink-0 flex items-center justify-center text-xs font-serif font-semibold border border-ink-1/20 shadow-sm gap-1 transition-colors cursor-pointer select-none"
+              title="Spielsteuerung & Karteerklärung anzeigen"
+            >
+              <HelpCircle size={13} className="text-ink-2" />
+              <span>Hilfe</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* ── FLOAT HOVER FLOATING INFO CARD ── */}

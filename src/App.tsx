@@ -31,7 +31,7 @@ import { SpeciesTracker } from './components/SpeciesTracker';
 import { SchoellershammerConsole } from './components/SchoellershammerConsole';
 import { BuildCatalog } from './components/BuildCatalog';
 import { EventModal } from './components/EventModal';
-import { Undo, RefreshCw, HelpCircle, BookOpen } from 'lucide-react';
+import { Undo, RefreshCw, HelpCircle, BookOpen, MapPin, Factory, Fish, FlaskConical, Scroll, X } from 'lucide-react';
 import { GameFeedbackOverlay, GameNotification, GameNotificationDetail } from './components/GameFeedbackOverlay';
 
 const COLS = 16;
@@ -131,6 +131,8 @@ export default function App() {
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   const [selectedCoord, setSelectedCoord] = useState<{ gx: number; gy: number } | null>({ gx: 10, gy: 8 });
   const [hasHoverSupport, setHasHoverSupport] = useState(true);
+  const [showLeftSidebar, setShowLeftSidebar] = useState(true);
+  const [showRightSidebar, setShowRightSidebar] = useState(true);
 
   useEffect(() => {
     const hoverQuery = window.matchMedia('(hover: hover)');
@@ -172,6 +174,7 @@ export default function App() {
   // Modals / Overlays
   const [activeEvent, setActiveEvent] = useState<ClimateEvent | null>(null);
   const [showTutorial, setShowTutorial] = useState(true);
+  const [showTipSystem, setShowTipSystem] = useState(true);
   const [pendingFeedback, setPendingFeedback] = useState<GameNotification | null>(null);
   const [stagedAction, setStagedAction] = useState<{
     type: 'play_card' | 'build_direct';
@@ -182,6 +185,7 @@ export default function App() {
   const [generalRulesOpen, setGeneralRulesOpen] = useState(false);
   const [isInspectionOpen, setIsInspectionOpen] = useState(true);
   const [isQuestsOpen, setIsQuestsOpen] = useState(true);
+  const [activeRightMenu, setActiveRightMenu] = useState<'inspection' | 'factory' | 'species' | 'research' | 'quests' | null>('inspection');
   const [isHeaderExpanded, setIsHeaderExpanded] = useState(false);
 
   // ── River mapping ──
@@ -1188,10 +1192,20 @@ export default function App() {
       </header>
 
       {/* ── MAIN WORKSPACE: Split Sidebars ── */}
-      <main className="flex-1 flex flex-col md:grid md:grid-cols-[104px_1fr_360px] gap-4 p-4 overflow-hidden">
+      <main 
+        className="flex-1 flex flex-col md:grid gap-4 p-4 overflow-hidden transition-all duration-300 ease-in-out"
+        style={{
+          gridTemplateColumns: `
+            ${showLeftSidebar ? '104px ' : ''} 
+            1fr 
+            ${showRightSidebar ? (activeRightMenu ? '430px' : '72px') : ''}
+          `.trim().replace(/\s+/g, ' ')
+        }}
+      >
         
         {/* LEFT COLUMN: Arche Nova Power Actions Strip */}
-        <aside className="bg-parch-0 border border-ink-1/10 rounded-2xl p-3.5 flex flex-row md:flex-col gap-2.5 items-stretch justify-between overflow-x-auto md:overflow-visible tablet-scroll z-20 w-full md:w-auto shadow-md">
+        {showLeftSidebar && (
+          <aside className="bg-parch-0 border border-ink-1/10 rounded-2xl p-3.5 flex flex-row md:flex-col gap-2.5 items-stretch justify-between overflow-x-auto md:overflow-visible tablet-scroll z-20 w-full md:w-auto shadow-md animate-in fade-in slide-in-from-left duration-200">
           <div className="flex flex-row md:flex-col gap-2.5 w-full md:overflow-visible">
             <span className="font-serif font-bold text-[9px] text-ink-3 tracking-widest uppercase text-center hidden md:block select-none mb-1">
               Aktionen
@@ -1325,6 +1339,7 @@ export default function App() {
             <span className="text-[9px] font-serif text-ink-3">Guide</span>
           </div>
         </aside>
+        )}
 
         {/* CENTER COLUMN: The Dynamic Interactive Sandbox Hex Map */}
         <section className="relative flex-1 bg-parch-1 border border-ink-1/10 rounded-2xl overflow-hidden flex flex-col shadow-md">
@@ -1355,6 +1370,34 @@ export default function App() {
             ))}
           </div>
 
+          {/* Mobile/Tablet HUD Sidebar Toggles with game-like tactile look & animations */}
+          <div className="absolute top-3 right-3 z-40 flex items-center gap-1.5 p-1 bg-parch-0/90 border border-ink-1/15 rounded-md shadow-md scale-90 sm:scale-100 backdrop-blur-sm select-none">
+            <button
+              onClick={() => setShowLeftSidebar(!showLeftSidebar)}
+              className={`px-2.5 py-1 rounded text-[10px] font-serif font-semibold border transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                showLeftSidebar 
+                  ? 'bg-ink-1 text-parch-0 border-ink-1 shadow-sm' 
+                  : 'bg-parch-2/60 text-ink-1 border-transparent hover:border-ink-1/30'
+              }`}
+              title="Aktionsleiste umschalten"
+            >
+              <span>🏗️</span>
+              <span>Aktionen</span>
+            </button>
+            <button
+              onClick={() => setShowRightSidebar(!showRightSidebar)}
+              className={`px-2.5 py-1 rounded text-[10px] font-serif font-semibold border transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                showRightSidebar 
+                  ? 'bg-ink-1 text-parch-0 border-ink-1 shadow-sm' 
+                  : 'bg-parch-2/60 text-ink-1 border-transparent hover:border-ink-1/30'
+              }`}
+              title="Steuerungselemente umschalten"
+            >
+              <span>📜</span>
+              <span>Details</span>
+            </button>
+          </div>
+
           <div className="flex-1 w-full h-full relative" id="isometric-canvas-wrapper">
             {grid.length > 0 && (
               <IsometricMap
@@ -1374,182 +1417,353 @@ export default function App() {
           </div>
         </section>
 
-        {/* RIGHT COLUMN: Ledger Details Console Sidebar */}
-        <aside className="bg-parch-0 border border-ink-1/10 rounded-2xl p-4 flex flex-col gap-3.5 overflow-y-auto tablet-scroll shadow-lg shrink-0 w-full md:w-[360px]">
-          
-          {/* Cell Inspection Detail card */}
-          {selectedCoord && grid[selectedCoord.gy]?.[selectedCoord.gx] && (
-            <div className="bg-parch-1 border border-ink-1/20 rounded-lg shadow-md flex flex-col transition-all duration-300">
-              {/* Clickable Header */}
-              <button 
-                onClick={() => setIsInspectionOpen(!isInspectionOpen)}
-                className="flex items-center justify-between w-full p-3 hover:bg-parch-2/50 text-left transition-colors font-serif font-bold text-sm text-ink-0 uppercase tracking-wider rounded-t-lg"
-              >
-                <div className="flex items-center gap-1.5 select-none text-ink-1">
-                  <span>📍 Kachel-Inspektion</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-[9px] text-ink-3">
-                    X={selectedCoord.gx} Y={selectedCoord.gy}
-                  </span>
-                  <svg 
-                    className={`w-4 h-4 text-ink-3 transition-transform duration-300 ${isInspectionOpen ? 'rotate-180' : 'rotate-0'}`} 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </button>
-
-              {/* Collapsible Content */}
-              <div className={`overflow-hidden transition-all duration-300 ${isInspectionOpen ? 'max-h-[500px] p-3 pt-0 border-t border-ink-1/10' : 'max-h-0'}`}>
-                <div className="flex flex-col gap-2.5 mt-2.5">
-                  <div className="flex items-start gap-2.5">
-                    <span className="text-3xl bg-parch-2 p-1.5 rounded border border-ink-1/10 shadow-sm leading-none flex-shrink-0">
-                      {selectedCoord.gx === 3 && selectedCoord.gy === 8 ? '🏭' :
-                       grid[selectedCoord.gy][selectedCoord.gx].terrain === 'Water' ? '🌊' :
-                       grid[selectedCoord.gy][selectedCoord.gx].terrain === 'Auwald' ? '🌲' :
-                       grid[selectedCoord.gy][selectedCoord.gx].terrain === 'Acker' ? '🌾' : '🌾'}
-                    </span>
-                    <div className="flex flex-col">
-                      <div className="font-serif font-bold text-sm text-ink-0">
-                        {grid[selectedCoord.gy][selectedCoord.gx].cityName || 'Freies Ufer / Offenland'}
+        {/* RIGHT COLUMN: Tabbed HUD Sidebar & Icons Dock */}
+        {showRightSidebar && (
+          <aside className={`flex flex-col md:flex-row gap-3 h-full overflow-hidden transition-all duration-350 ${
+            activeRightMenu ? 'w-full md:w-[430px]' : 'w-full md:w-[72px]'
+          } shrink-0`}>
+            
+            {/* 1. Detail Panel for Active Menu */}
+            {activeRightMenu && (
+              <div className="flex-1 bg-parch-0 border border-ink-1/10 rounded-2xl p-4 flex flex-col gap-3.5 overflow-y-auto tablet-scroll shadow-lg animate-in fade-in slide-in-from-right duration-250 min-w-0">
+                
+                {/* 1A. Tile Inspection tab content */}
+                {activeRightMenu === 'inspection' && (
+                  <div className="flex flex-col h-full">
+                    <div className="flex items-center justify-between border-b border-ink-1/10 pb-2.5 mb-2.5 select-none animate-in fade-in duration-200">
+                      <div className="flex items-center gap-1.5 font-serif font-bold text-sm text-ink-0 uppercase tracking-wider">
+                        <MapPin size={16} className="text-eco-primary animate-pulse" />
+                        <span>Kachel-Inspektion</span>
                       </div>
-                      <span className="text-xs text-ink-2 font-serif italic mt-0.5">
-                        {selectedCoord.gy < 5 ? 'Jülicher Tiefland' : selectedCoord.gy < 11 ? 'Düren Mitte' : 'Eifel Oberlauf'}
-                      </span>
+                      <button 
+                        onClick={() => setActiveRightMenu(null)}
+                        className="text-ink-3 hover:text-ink-1 p-1 hover:bg-parch-2 rounded transition-colors cursor-pointer"
+                        title="Zuklappen"
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
-                  </div>
 
-                  {/* Local Tile metrics */}
-                  <div className="grid grid-cols-2 gap-2 mt-1">
-                    <div className="bg-parch-1/70 border border-ink-1/10 rounded p-1.5">
-                      <span className="font-mono text-[8px] text-ink-3 uppercase block leading-none">Güte (WRRL)</span>
-                      <span className="font-serif text-md font-bold mt-1 text-ink-1 block">
-                        Klasse {grid[selectedCoord.gy][selectedCoord.gx].wrrl_quality.toFixed(1)}
-                      </span>
-                    </div>
-                    <div className="bg-parch-1/70 border border-ink-1/10 rounded p-1.5">
-                      <span className="font-mono text-[8px] text-ink-3 uppercase block leading-none">Biodiversität</span>
-                      <span className="font-serif text-md font-bold mt-1 text-ink-1 block">
-                        {grid[selectedCoord.gy][selectedCoord.gx].ffh_value}%
-                      </span>
-                    </div>
-                  </div>
+                    {selectedCoord && grid[selectedCoord.gy]?.[selectedCoord.gx] ? (
+                      <div className="flex flex-col gap-3 animate-in fade-in duration-200">
+                        <div className="flex items-start gap-2.5 bg-parch-1 border border-ink-1/10 rounded-xl p-3 shadow-sm">
+                          <span className="text-4xl bg-parch-2 p-2 rounded border border-ink-1/10 shadow-sm leading-none flex-shrink-0 select-none">
+                            {selectedCoord.gx === 3 && selectedCoord.gy === 8 ? '🏭' :
+                             grid[selectedCoord.gy][selectedCoord.gx].terrain === 'Water' ? '🌊' :
+                             grid[selectedCoord.gy][selectedCoord.gx].terrain === 'Auwald' ? '🌲' :
+                             grid[selectedCoord.gy][selectedCoord.gx].terrain === 'Acker' ? '🌾' : '🌾'}
+                          </span>
+                          <div className="flex flex-col">
+                            <div className="font-serif font-bold text-sm text-ink-0">
+                              {grid[selectedCoord.gy][selectedCoord.gx].cityName || 'Freies Ufer / Offenland'}
+                            </div>
+                            <span className="text-xs text-ink-2 font-serif italic mt-0.5">
+                              {selectedCoord.gy < 5 ? 'Jülicher Tiefland' : selectedCoord.gy < 11 ? 'Düren Mitte' : 'Eifel Oberlauf'}
+                            </span>
+                            <span className="font-mono text-[9px] text-ink-3 mt-1 bg-parch-2/80 px-1.5 py-0.5 rounded border border-ink-1/5 self-start">
+                              X:{selectedCoord.gx} Y:{selectedCoord.gy}
+                            </span>
+                          </div>
+                        </div>
 
-                  {/* Secondary data */}
-                  <div className="text-xs text-ink-1 flex flex-col gap-1 border-t border-ink-1/10 pt-2 font-mono">
-                    <div>Fahrflutrisiko: <span className="font-bold">{grid[selectedCoord.gy][selectedCoord.gx].flood_risk}</span></div>
-                    {grid[selectedCoord.gy][selectedCoord.gx].buildingId && (
-                      <div className="text-eco-primary font-serif font-bold text-[11px] mt-0.5 bg-eco-primary/5 p-1 rounded border border-eco-primary/15">
-                        Aktive Belegung: {BUILDINGS_CATALOG.find(b => b.id === grid[selectedCoord.gy][selectedCoord.gx].buildingId)?.name || 'Papierfabrik'}
+                        {/* Local Tile metrics */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-parch-1/70 border border-ink-1/10 rounded-lg p-2 shadow-sm">
+                            <span className="font-mono text-[8.5px] text-ink-3 uppercase block leading-none font-bold">Güte (WRRL)</span>
+                            <span className="font-serif text-md font-bold mt-1.5 text-ink-1 block">
+                              Klasse {grid[selectedCoord.gy][selectedCoord.gx].wrrl_quality.toFixed(1)}
+                            </span>
+                          </div>
+                          <div className="bg-parch-1/70 border border-ink-1/10 rounded-lg p-2 shadow-sm">
+                            <span className="font-mono text-[8.5px] text-ink-3 uppercase block leading-none font-bold">Biodiversität</span>
+                            <span className="font-serif text-md font-bold mt-1.5 text-ink-1 block">
+                              {grid[selectedCoord.gy][selectedCoord.gx].ffh_value}%
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Secondary data */}
+                        <div className="text-xs bg-parch-1/40 border border-ink-1/10 rounded-lg p-3 text-ink-1 flex flex-col gap-1.5 font-mono">
+                          <div className="flex justify-between border-b border-ink-1/5 pb-1">
+                            <span className="text-ink-3 font-sans text-[11px]">Hochwasserschutz:</span>
+                            <span className="font-bold">{grid[selectedCoord.gy][selectedCoord.gx].flood_risk}</span>
+                          </div>
+                          {grid[selectedCoord.gy][selectedCoord.gx].buildingId && (
+                            <div className="text-eco-primary font-serif font-bold text-[11px] mt-0.5 bg-eco-primary/5 p-1.5 rounded border border-eco-primary/15">
+                              Belegung: {BUILDINGS_CATALOG.find(b => b.id === grid[selectedCoord.gy][selectedCoord.gx].buildingId)?.name || 'Papierfabrik'}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action builder trigger button */}
+                        {selectedBuilding && (
+                          <div className="mt-1 bg-eco-primary/10 border border-eco-primary/20 rounded-xl p-3 flex flex-col gap-1.5 shadow-sm animate-in fade-in duration-200">
+                            <div className="text-xs text-eco-primary font-bold font-serif flex items-center gap-1">
+                              <span>🧱 Vorbereiten:</span>
+                              <span className="underline">{selectedBuilding.name}</span>
+                            </div>
+                            <button
+                              onClick={handleBuildMeasureOnSelected}
+                              className="w-full py-2 text-center font-serif text-xs font-bold text-white bg-eco-primary rounded-lg shadow-md hover:brightness-105 active:brightness-95 transition-all cursor-pointer"
+                            >
+                              Maßnahme anlegen (€)
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center p-4 py-8 bg-parch-1/40 border border-dashed border-ink-1/20 rounded-xl animate-in fade-in duration-200">
+                        <div className="text-3xl mb-2 select-none">🗺️</div>
+                        <p className="font-serif italic text-ink-2 text-xs sm:text-sm max-w-[200px]">
+                          Klicke eine Kachel auf der Karte an, um ihre Flora, Fauna und WRRL-Güte zu analysieren.
+                        </p>
                       </div>
                     )}
                   </div>
+                )}
 
-                  {/* Action builder trigger button */}
-                  {selectedBuilding && (
-                    <div className="mt-1 bg-eco-primary/10 border border-eco-primary/30 rounded-lg p-2 flex flex-col gap-1.5">
-                      <div className="text-xs text-eco-primary font-bold">
-                        Baue: {selectedBuilding.name}
+                {/* 1B. Factory Console tab content */}
+                {activeRightMenu === 'factory' && (
+                  <div className="flex flex-col h-full animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between border-b border-ink-1/10 pb-2.5 mb-2.5 select-none">
+                      <div className="flex items-center gap-1.5 font-serif font-bold text-sm text-ink-0 uppercase tracking-wider">
+                        <Factory size={16} className="text-ink-1" />
+                        <span>Schoellershammer</span>
                       </div>
-                      <button
-                        onClick={handleBuildMeasureOnSelected}
-                        className="w-full py-1.5 text-center font-serif text-xs font-bold text-white bg-eco-primary rounded-md shadow hover:brightness-105 active:brightness-95"
+                      <button 
+                        onClick={() => setActiveRightMenu(null)}
+                        className="text-ink-3 hover:text-ink-1 p-1 hover:bg-parch-2 rounded transition-colors cursor-pointer"
+                        title="Zuklappen"
                       >
-                        Maßnahme anlegen (€)
+                        <X size={14} />
                       </button>
                     </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Schoellershammer Control System */}
-          <SchoellershammerConsole
-            currentMode={stats.paperFactoryMode}
-            onModeChange={handleFactoryModeChange}
-            isRenaturierungUnlocked={isLachsRenaturierungUnlocked || false}
-          />
-
-          {/* Species Tracker */}
-          <SpeciesTracker species={speciesList} />
-
-          {/* Research Progress node Tree in Sidebar */}
-          <ResearchPanel
-            nodes={researchNodes}
-            researchPoints={stats.researchPoints}
-            onUnlockNode={handleUnlockResearch}
-          />
-
-          {/* Active Quests box ledger */}
-          <div className="bg-parch-1 border border-ink-1/20 rounded-lg shadow-md flex flex-col transition-all duration-300">
-            {/* Clickable Header for Collapse/Expand */}
-            <button 
-              onClick={() => setIsQuestsOpen(!isQuestsOpen)}
-              className="flex items-center justify-between w-full p-3 hover:bg-parch-2/50 text-left transition-colors font-serif font-bold text-sm text-ink-0 uppercase tracking-wider rounded-t-lg"
-            >
-              <div className="flex items-center gap-1.5 select-none">
-                <span>👑 Behörden-Aufträge</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[9px] text-ink-3 bg-parch-3/60 px-1.5 py-0.5 rounded font-bold">
-                  {quests.filter(q => q.status !== 'completed').length} Aktiv
-                </span>
-                <svg 
-                  className={`w-4 h-4 text-ink-3 transition-transform duration-300 ${isQuestsOpen ? 'rotate-180' : 'rotate-0'}`} 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </button>
-
-            {/* Collapsible Content */}
-            <div className={`overflow-hidden transition-all duration-300 ${isQuestsOpen ? 'max-h-[500px] p-3 pt-0 border-t border-ink-1/10' : 'max-h-0'}`}>
-              <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto tablet-scroll pr-1 mt-2.5">
-                {quests.map(q => (
-                  <div
-                    key={q.id}
-                    className={`p-2.5 rounded-lg border text-left flex flex-col ${
-                      q.status === 'completed'
-                        ? 'bg-green-50/50 border-green-200 text-green-950 opacity-60'
-                        : 'bg-parch-0 border-ink-1/10 text-ink-0'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-1.5">
-                      <span className="font-serif font-bold text-xs">
-                        {q.title}
-                      </span>
-                      {q.status === 'completed' ? (
-                        <span className="text-[9px] font-mono font-bold bg-green-200 text-green-800 rounded px-1 uppercase shrink-0">ERLEDIGT</span>
-                      ) : (
-                        <span className="text-[9px] font-mono font-bold bg-parch-3 text-ink-3 rounded px-1 uppercase shrink-0">AKTIV</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-ink-2 mt-1 leading-normal">
-                      {q.description}
-                    </p>
-                    <span className="text-[10px] font-mono text-ink-3 mt-1 block italic">{q.rewardText}</span>
+                    <SchoellershammerConsole
+                      currentMode={stats.paperFactoryMode}
+                      onModeChange={handleFactoryModeChange}
+                      isRenaturierungUnlocked={isLachsRenaturierungUnlocked || false}
+                    />
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
+                )}
 
-        </aside>
+                {/* 1C. Species Tracker tab content */}
+                {activeRightMenu === 'species' && (
+                  <div className="flex flex-col h-full animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between border-b border-ink-1/10 pb-2.5 mb-2.5 select-none">
+                      <div className="flex items-center gap-1.5 font-serif font-bold text-sm text-ink-0 uppercase tracking-wider">
+                        <Fish size={16} className="text-blue-500 animate-bounce" />
+                        <span>Arten-Erfassung</span>
+                      </div>
+                      <button 
+                        onClick={() => setActiveRightMenu(null)}
+                        className="text-ink-3 hover:text-ink-1 p-1 hover:bg-parch-2 rounded transition-colors cursor-pointer"
+                        title="Zuklappen"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <SpeciesTracker species={speciesList} />
+                  </div>
+                )}
+
+                {/* 1D. Research Panel tab content */}
+                {activeRightMenu === 'research' && (
+                  <div className="flex flex-col h-full animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between border-b border-ink-1/10 pb-2.5 mb-2.5 select-none">
+                      <div className="flex items-center gap-1.5 font-serif font-bold text-sm text-ink-0 uppercase tracking-wider">
+                        <FlaskConical size={16} className="text-purple-600" />
+                        <span>Forschung & Tech</span>
+                      </div>
+                      <button 
+                        onClick={() => setActiveRightMenu(null)}
+                        className="text-ink-3 hover:text-ink-1 p-1 hover:bg-parch-2 rounded transition-colors cursor-pointer"
+                        title="Zuklappen"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <ResearchPanel
+                      nodes={researchNodes}
+                      researchPoints={stats.researchPoints}
+                      onUnlockNode={handleUnlockResearch}
+                    />
+                  </div>
+                )}
+
+                {/* 1E. Active Quests box ledger tab content */}
+                {activeRightMenu === 'quests' && (
+                  <div className="flex flex-col h-full animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between border-b border-ink-1/10 pb-2.5 mb-2.5 select-none">
+                      <div className="flex items-center gap-1.5 font-serif font-bold text-sm text-ink-0 uppercase tracking-wider">
+                        <Scroll size={16} className="text-amber-600" />
+                        <span>Behörden-Aufträge</span>
+                      </div>
+                      <button 
+                        onClick={() => setActiveRightMenu(null)}
+                        className="text-ink-3 hover:text-ink-1 p-1 hover:bg-parch-2 rounded transition-colors cursor-pointer"
+                        title="Zuklappen"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <div className="font-mono text-[9px] text-ink-3 mb-2 uppercase tracking-wide font-bold select-none">
+                      {quests.filter(q => q.status !== 'completed').length} offene Aufträge
+                    </div>
+                    <div className="flex flex-col gap-2 max-h-full overflow-y-auto tablet-scroll pr-1">
+                      {quests.map(q => (
+                        <div
+                          key={q.id}
+                          className={`p-3 rounded-lg border text-left flex flex-col shadow-sm transition-all duration-200 ${
+                            q.status === 'completed'
+                              ? 'bg-green-50/50 border-green-200 text-green-950 opacity-65'
+                              : 'bg-parch-1 border-ink-1/10 hover:border-ink-1/20 text-ink-0'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="font-serif font-bold text-xs">
+                              {q.title}
+                            </span>
+                            {q.status === 'completed' ? (
+                              <span className="text-[8px] font-mono font-bold bg-green-200 text-green-800 rounded px-1.5 py-0.5 uppercase shrink-0">ERLEDIGT</span>
+                            ) : (
+                              <span className="text-[8px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-200 rounded px-1.5 py-0.5 uppercase shrink-0">AKTIV</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-ink-2 mt-1 leading-normal">
+                            {q.description}
+                          </p>
+                          <span className="text-[10px] font-mono text-ink-3 mt-1.5 block italic border-t border-ink-1/5 pt-1">{q.rewardText}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            )}
+
+            {/* 2. Vertical HUD Icon Dock */}
+            <div className="w-full md:w-[60px] bg-parch-0 border border-ink-1/10 rounded-2xl p-2 md:p-2.5 flex flex-row md:flex-col gap-2.5 items-center justify-around md:justify-start shadow-md h-auto md:h-full select-none shrink-0 z-20">
+              <span className="font-serif font-bold text-[8px] text-ink-3 tracking-widest uppercase text-center hidden md:block select-none leading-none mb-1">
+                Menü
+              </span>
+
+              {/* 2A. Tile Inspection button */}
+              <button
+                onClick={() => setActiveRightMenu(activeRightMenu === 'inspection' ? null : 'inspection')}
+                className={`group relative w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center border transition-all duration-300 cursor-pointer ${
+                  activeRightMenu === 'inspection'
+                    ? 'bg-ink-1 text-parch-0 border-ink-1 scale-105 shadow-md shadow-ink-1/15'
+                    : 'bg-parch-2 text-ink-2 border-ink-1/10 hover:bg-parch-3 hover:text-ink-0 hover:border-ink-1/30'
+                }`}
+                title="Kachel-Inspektion"
+              >
+                <MapPin size={20} />
+                {selectedCoord && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-eco-primary border border-parch-0 rounded-full" />
+                )}
+                {/* Desktop tooltip popup */}
+                <span className="absolute right-14 top-1/2 -translate-y-1/2 bg-ink-0 text-parch-0 text-[10px] font-serif px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block whitespace-nowrap z-50">
+                  📍 Kachel-Beschreibung
+                </span>
+              </button>
+
+              {/* 2B. Factory console button */}
+              <button
+                onClick={() => setActiveRightMenu(activeRightMenu === 'factory' ? null : 'factory')}
+                className={`group relative w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center border transition-all duration-300 cursor-pointer ${
+                  activeRightMenu === 'factory'
+                    ? 'bg-ink-1 text-parch-0 border-ink-1 scale-105 shadow-md shadow-ink-1/15'
+                    : 'bg-parch-2 text-ink-2 border-ink-1/10 hover:bg-parch-3 hover:text-ink-0 hover:border-ink-1/30'
+                }`}
+                title="Schoellershammer Fabrik-Steuerung"
+              >
+                <Factory size={20} />
+                <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-parch-0 ${
+                  stats.paperFactoryMode === 'Renaturiert' ? 'bg-eco-primary' : 'bg-red-500 animate-pulse'
+                }`} />
+                {/* Desktop tooltip popup */}
+                <span className="absolute right-14 top-1/2 -translate-y-1/2 bg-ink-0 text-parch-0 text-[10px] font-serif px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block whitespace-nowrap z-50">
+                  🏭 Schoellershammer Steuerung
+                </span>
+              </button>
+
+              {/* 2C. Species tracker button */}
+              <button
+                onClick={() => setActiveRightMenu(activeRightMenu === 'species' ? null : 'species')}
+                className={`group relative w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center border transition-all duration-300 cursor-pointer ${
+                  activeRightMenu === 'species'
+                    ? 'bg-ink-1 text-parch-0 border-ink-1 scale-105 shadow-md shadow-ink-1/15'
+                    : 'bg-parch-2 text-ink-2 border-ink-1/10 hover:bg-parch-3 hover:text-ink-0 hover:border-ink-1/30'
+                }`}
+                title="Arten-Erfassung & Biologie"
+              >
+                <Fish size={20} />
+                {/* Discovered species count bubble */}
+                <span className="absolute -top-1.5 -right-1.5 bg-blue-500 text-white font-mono text-[8.5px] font-bold px-1.5 py-0.2 rounded-full leading-none">
+                  {speciesList.length}
+                </span>
+                {/* Desktop tooltip popup */}
+                <span className="absolute right-14 top-1/2 -translate-y-1/2 bg-ink-0 text-parch-0 text-[10px] font-serif px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block whitespace-nowrap z-50">
+                  🐟 Arten-Flora & Fauna
+                </span>
+              </button>
+
+              {/* 2D. Research panel button */}
+              <button
+                onClick={() => setActiveRightMenu(activeRightMenu === 'research' ? null : 'research')}
+                className={`group relative w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center border transition-all duration-300 cursor-pointer ${
+                  activeRightMenu === 'research'
+                    ? 'bg-ink-1 text-parch-0 border-ink-1 scale-105 shadow-md shadow-ink-1/15'
+                    : 'bg-parch-2 text-ink-2 border-ink-1/10 hover:bg-parch-3 hover:text-ink-0 hover:border-ink-1/30'
+                }`}
+                title="Forschungsbaum & Entwicklung"
+              >
+                <FlaskConical size={20} />
+                {stats.researchPoints > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-purple-600 text-white font-mono text-[8.5px] font-bold px-1.5 py-0.2 rounded-full leading-none animate-pulse">
+                    +{stats.researchPoints}
+                  </span>
+                )}
+                {/* Desktop tooltip popup */}
+                <span className="absolute right-14 top-1/2 -translate-y-1/2 bg-ink-0 text-parch-0 text-[10px] font-serif px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block whitespace-nowrap z-50">
+                  🧪 Forschungsbaum
+                </span>
+              </button>
+
+              {/* 2E. Active Quests button */}
+              <button
+                onClick={() => setActiveRightMenu(activeRightMenu === 'quests' ? null : 'quests')}
+                className={`group relative w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center border transition-all duration-300 cursor-pointer ${
+                  activeRightMenu === 'quests'
+                    ? 'bg-ink-1 text-parch-0 border-ink-1 scale-105 shadow-md shadow-ink-1/15'
+                    : 'bg-parch-2 text-ink-2 border-ink-1/10 hover:bg-parch-3 hover:text-ink-0 hover:border-ink-1/30'
+                }`}
+                title="Behörden-Aufträge (Quests)"
+              >
+                <Scroll size={20} />
+                {quests.filter(q => q.status !== 'completed').length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-amber-600 text-white font-mono text-[8.5px] font-bold px-1.5 py-0.2 rounded-full leading-none shadow-sm">
+                    {quests.filter(q => q.status !== 'completed').length}
+                  </span>
+                )}
+                {/* Desktop tooltip popup */}
+                <span className="absolute right-14 top-1/2 -translate-y-1/2 bg-ink-0 text-parch-0 text-[10px] font-serif px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block whitespace-nowrap z-50">
+                  👑 Quests & Aufträge
+                </span>
+              </button>
+
+            </div>
+
+          </aside>
+        )}
       </main>
 
       {/* ── FOOTER: Baukatalog / measures ribbon & End Turn Button ── */}
-      <footer className="bg-parch-0/80 border border-ink-1/10 rounded-2xl p-3.5 mx-4 mb-4 flex flex-col md:grid md:grid-cols-[1fr_240px] gap-4 items-stretch justify-between shadow-lg z-20 backdrop-blur-md">
+      <footer className="bg-parch-0/80 border border-ink-1/10 rounded-2xl p-2.5 mx-4 mb-3 flex flex-col md:grid md:grid-cols-[1fr_210px] gap-3 items-stretch justify-between shadow-lg z-20 backdrop-blur-md">
         
         {/* Horizontal scrollable measures catalog selection */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
           {selectedCardId === 'act_build' ? (
             <div className="w-full">
               <BuildCatalog
@@ -1561,16 +1775,107 @@ export default function App() {
               />
             </div>
           ) : (
-            <div className="w-full flex flex-col md:flex-row items-stretch gap-4 bg-parch-1/80 border border-ink-1/10 rounded-xl p-3.5 shadow-inner">
+            <div className="w-full flex items-stretch gap-3 bg-parch-1/80 border border-ink-1/10 rounded-xl p-2 shadow-inner">
               {(() => {
                 const activeCardIdForDetail = hoveredCardId || selectedCardId;
                 const card = cards.find(c => c.id === activeCardIdForDetail);
                 if (!card) {
                   return (
-                    <div className="flex items-center justify-center p-2.5 w-full text-center">
-                      <p className="font-serif italic text-ink-2 text-xs sm:text-sm">
-                        💡 Wähle die Aktionskarte <span className="font-bold text-ink-1">"Bauen & Errichten (🏗️)"</span> links aus, um den Baukatalog zu öffnen, oder klicke eine andere Karte an, um sie auszuspielen.
-                      </p>
+                    <div className="w-full flex flex-col gap-2 p-1.5 select-none">
+                      {showTipSystem ? (
+                        <div className="relative flex items-center justify-between bg-eco-primary/5 border border-eco-primary/10 rounded-lg py-1 px-2.5 pr-8 text-left">
+                          <p className="font-serif italic text-ink-2 text-xs leading-snug">
+                            💡 Wähle die Aktionskarte <span className="font-bold text-ink-1">"Bauen & Errichten (🏗️)"</span> links aus, um den Baukatalog zu öffnen, oder klicke eine andere Karte an, um sie auszuspielen.
+                          </p>
+                          <button
+                            onClick={() => setShowTipSystem(false)}
+                            className="absolute top-1/2 -translate-y-1/2 right-2 text-ink-3 hover:text-ink-1 p-1 hover:bg-parch-2 rounded transition-colors text-xs font-bold"
+                            title="Tipps verbergen"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {/* Control Panel Dashboard */}
+                      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-left w-full">
+                        {/* Map-Overlays (Atlas Filter) */}
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[9px] text-ink-3 font-bold uppercase tracking-wider">Atlas-Ebene:</span>
+                          <div className="flex bg-parch-0 border border-ink-1/10 rounded px-1 py-0.5 gap-0.5 shadow-sm">
+                            {(
+                              [
+                                { id: 'none', label: 'Aus' },
+                                { id: 'wrrl', label: '🌊 WRRL' },
+                                { id: 'ffh', label: '🌿 FFH' },
+                                { id: 'flood', label: '⚠️ Flut' }
+                              ] as const
+                            ).map(overlay => (
+                              <button
+                                key={overlay.id}
+                                onClick={() => setActiveOverlay(overlay.id)}
+                                className={`px-1.5 py-0.5 rounded text-[9.5px] font-serif font-bold border transition-all ${
+                                  activeOverlay === overlay.id
+                                    ? 'bg-ink-1 text-parch-0 border-ink-1 shadow-sm'
+                                    : 'bg-transparent text-ink-1 border-transparent hover:bg-parch-3/40'
+                                }`}
+                              >
+                                {overlay.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Sidebar controls */}
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[9px] text-ink-3 font-bold uppercase tracking-wider">Ansichten:</span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setShowLeftSidebar(!showLeftSidebar)}
+                              className={`px-2 py-0.5 rounded text-[9.5px] font-serif font-bold border transition-all ${
+                                showLeftSidebar 
+                                  ? 'bg-eco-primary/10 text-eco-primary border-eco-primary/20' 
+                                  : 'bg-parch-2/60 text-ink-2 border-transparent hover:bg-parch-2'
+                              }`}
+                            >
+                              🏗️ Aktionen {showLeftSidebar ? 'An' : 'Aus'}
+                            </button>
+                            <button
+                              onClick={() => setShowRightSidebar(!showRightSidebar)}
+                              className={`px-2 py-0.5 rounded text-[9.5px] font-serif font-bold border transition-all ${
+                                showRightSidebar 
+                                  ? 'bg-eco-primary/10 text-eco-primary border-eco-primary/20' 
+                                  : 'bg-parch-2/60 text-ink-2 border-transparent hover:bg-parch-2'
+                              }`}
+                            >
+                              📜 Details {showRightSidebar ? 'An' : 'Aus'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Compact actions button */}
+                        <div className="flex items-center gap-2.5 ml-auto">
+                          {!showTipSystem && (
+                            <button
+                              onClick={() => setShowTipSystem(true)}
+                              className="px-2 py-0.5 text-[10px] font-serif font-semibold text-eco-primary hover:bg-eco-primary/5 rounded border border-eco-primary/10 flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <span>💡 Tipps</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setShowTutorial(true);
+                              setTutorialStep(0);
+                            }}
+                            className="p-1 text-ink-3 hover:text-ink-1 hover:bg-parch-2 rounded flex items-center gap-1 text-[10px] font-serif transition-colors"
+                            title="Anleitung anzeigen"
+                          >
+                            <HelpCircle className="w-3.5 h-3.5 text-ink-2" />
+                            <span>Anleitung</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   );
                 }
@@ -1583,44 +1888,63 @@ export default function App() {
                 };
                 const renderedStrengthEffect = getCardStrengthEffectResult(card.id, card.strength);
                 return (
-                  <div className="flex flex-col sm:flex-row items-start gap-4 w-full">
-                    <div className="text-4xl bg-parch-2 p-3 rounded-xl border border-ink-1/10 flex items-center justify-center shrink-0 min-w-[60px] min-h-[60px] shadow-sm select-none">
+                  <div className="flex items-start gap-2.5 w-full">
+                    <div className="text-2xl bg-parch-2 p-2 rounded-lg border border-ink-1/10 flex items-center justify-center shrink-0 w-11 h-11 shadow-sm select-none">
                       {card.emoji}
                     </div>
-                    <div className="flex-1 flex flex-col md:grid md:grid-cols-[220px_1fr] md:gap-4 items-start gap-2 text-left">
-                      <div className="w-full">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-serif font-bold text-xs uppercase tracking-wide text-ink-0">{details.title}</h4>
-                          <span className="text-[8px] font-mono bg-parch-3 text-ink-2 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
-                            {details.subtitle}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1.5 font-mono text-[10px] text-ink-3">
-                          <span>Aktuelle Stärke:</span>
-                          <span className="font-bold text-eco-primary font-serif text-xs">{card.strength} von 5</span>
+                    <div className="flex-1 flex flex-col gap-1 text-left min-w-0">
+                      <div className="flex items-center gap-2 select-none">
+                        <h4 className="font-serif font-bold text-xs uppercase tracking-wide text-ink-0 leading-none">{details.title}</h4>
+                        <span className="text-[7.5px] font-mono bg-parch-3 text-ink-2 px-1 py-0.5 rounded uppercase tracking-wider font-bold leading-none">
+                          {details.subtitle}
+                        </span>
+                        
+                        <div className="hidden sm:flex items-center gap-1.5 font-mono text-[9px] text-ink-3 ml-auto">
+                          <span>Aktionsstärke:</span>
+                          <span className="font-bold text-eco-primary text-xs leading-none">{card.strength}/5</span>
                           <div className="flex gap-0.5">
                             {[1, 2, 3, 4, 5].map(idx => (
                               <div
                                 key={idx}
-                                className={`w-1 h-2 rounded-full ${
-                                  idx <= card.strength ? 'bg-eco-primary' : 'bg-parch-3/60'
+                                className={`w-0.75 h-1.5 rounded-full ${
+                                  idx <= card.strength ? 'bg-eco-primary' : 'bg-parch-3'
                                 }`}
                               />
                             ))}
                           </div>
                         </div>
                       </div>
-                      <div className="w-full text-[11px] leading-relaxed">
-                        <p className="text-ink-1 font-sans">{details.effect}</p>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 border-t border-dashed border-ink-1/10 pt-1.5">
-                          <div className="flex items-center gap-1">
-                            <span className="text-ink-3 font-mono text-[9px] uppercase tracking-wider">{details.strengthLabel}:</span>
-                            <span className="font-bold text-eco-primary font-mono text-[9.5px]">{renderedStrengthEffect}</span>
-                          </div>
-                          <span className="text-ink-3 tracking-wide text-[10px] italic sm:ml-auto">
-                            💡 {details.tip}
-                          </span>
+
+                      <div className="text-[10.5px] leading-relaxed text-ink-1 font-sans">
+                        {details.effect}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 border-t border-dashed border-ink-1/10 pt-0.5">
+                        <div className="flex items-center gap-1 select-none">
+                          <span className="text-[#604b35] font-mono text-[8px] uppercase tracking-wider">{details.strengthLabel}:</span>
+                          <span className="font-bold text-eco-primary font-mono text-[9px]">{renderedStrengthEffect}</span>
                         </div>
+                        {showTipSystem ? (
+                          <div className="flex items-center gap-1.5 sm:ml-auto">
+                            <span className="text-ink-3 tracking-wide text-[9.5px] italic">
+                              💡 {details.tip}
+                            </span>
+                            <button 
+                              onClick={() => setShowTipSystem(false)}
+                              className="text-ink-3 hover:text-ink-1 p-0.5 hover:bg-parch-3 rounded transition-colors text-[9px]"
+                              title="Tipp verbergen"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setShowTipSystem(true)}
+                            className="text-eco-primary hover:underline text-[9.5px] font-serif sm:ml-auto flex items-center gap-1 cursor-pointer transition-all"
+                          >
+                            <span>💡 Tipp</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1631,42 +1955,42 @@ export default function App() {
         </div>
 
         {/* Global Turn Controls */}
-        <div className="flex flex-col justify-between p-2.5 bg-parch-3 border border-ink-1/10 rounded-xl shrink-0">
-          <div className="flex items-center justify-between gap-1 border-b border-dashed border-ink-1/10 pb-1.5 px-1.5">
+        <div className="flex flex-col justify-between p-2 bg-parch-3 border border-ink-1/10 rounded-xl shrink-0">
+          <div className="flex items-center justify-between gap-1 border-b border-dashed border-ink-1/10 pb-1 px-1 mt-0.5 select-none">
             <div className="flex flex-col text-left">
-              <span className="text-[9px] text-ink-3 font-mono leading-none font-bold">CO₂-FUẞABDRUCK</span>
-              <span className={`text-[11px] font-serif font-bold leading-none mt-1 ${getCO2Rating(stats.co2Footprint).style}`}>
+              <span className="text-[8px] text-ink-3 font-mono leading-none font-bold">CO₂-FUẞABDRUCK</span>
+              <span className={`text-[10.5px] font-serif font-bold leading-none mt-1 ${getCO2Rating(stats.co2Footprint).style}`}>
                 {stats.co2Footprint}t ({getCO2Rating(stats.co2Footprint).text})
               </span>
             </div>
             
             <div className="flex flex-col text-right">
-              <span className="text-[9px] text-ink-3 font-mono leading-none font-bold">AKZEPTANZ</span>
-              <span className={`text-[11px] font-serif font-style font-semibold leading-none ${getAcceptanceLabel(stats.citizenAcceptance).style}`}>
+              <span className="text-[8px] text-ink-3 font-mono leading-none font-bold">AKZEPTANZ</span>
+              <span className={`text-[10.5px] font-serif font-style font-semibold leading-none ${getAcceptanceLabel(stats.citizenAcceptance).style}`}>
                 {stats.citizenAcceptance}% ({getAcceptanceLabel(stats.citizenAcceptance).text})
               </span>
             </div>
           </div>
 
-          <div className="flex gap-2.5 mt-2">
+          <div className="flex gap-1.5 mt-1.5">
             {/* Undo Action */}
             <button
               onClick={handleUndo}
               disabled={undoHistory.length === 0}
-              className={`p-2.5 rounded-lg border flex items-center justify-center font-serif text-xs font-bold shrink-0 transition-all ${
+              className={`p-1.5 rounded-lg border flex items-center justify-center font-serif text-xs font-bold shrink-0 transition-all ${
                 undoHistory.length > 0
-                  ? 'bg-parch-0 text-ink-1 border-ink-1/20 hover:border-ink-1 active:bg-parch-2'
+                  ? 'bg-parch-0 text-ink-1 border-ink-1/20 hover:border-ink-1 active:bg-parch-2 cursor-pointer'
                   : 'bg-parch-2/40 text-ink-3/30 border-ink-1/10 cursor-not-allowed opacity-55'
               }`}
               title="Undoletzter Schritt"
             >
-              <Undo className="w-5 h-5" />
+              <Undo className="w-4 h-4" />
             </button>
 
             {/* End Turn trigger */}
             <button
               onClick={handleEndTurn}
-              className="flex-1 py-2.5 rounded-lg font-serif font-bold text-xs uppercase tracking-widest text-white bg-eco-primary hover:brightness-105 active:brightness-95 shadow-md flex items-center justify-center gap-1.5"
+              className="flex-1 py-1.5 rounded-lg font-serif font-bold text-xs uppercase tracking-wider text-white bg-eco-primary hover:brightness-105 active:brightness-95 shadow-md flex items-center justify-center gap-1 cursor-pointer"
             >
               Nächste Runde →
             </button>
