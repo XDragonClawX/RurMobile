@@ -1,0 +1,6 @@
+{
+  "name": "RurNova",
+  "description": "Isometrisches Renaturierungs-Spiel über die Rur im Kreis Düren nach dem Arche-Nova-Aktionsprinzip.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
