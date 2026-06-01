@@ -39,13 +39,79 @@ const ROWS = 16;
 
 const SEASONS = ['FRÜHJAHR', 'SOMMER', 'HERBST', 'WINTER'];
 
+const CARD_DETAILS: Record<string, {
+  title: string;
+  subtitle: string;
+  effect: string;
+  tip: string;
+  strengthLabel: string;
+}> = {
+  act_funding: {
+    title: "Mittel beantragen",
+    subtitle: "Zuschuss",
+    effect: "Fördermittel für Hochwasserschutz & Renaturierung einfordern.",
+    tip: "Hohe Stärke vervielfacht das erhaltene Budget.",
+    strengthLabel: "Zuschuss"
+  },
+  act_hydrology: {
+    title: "Wasser leiten",
+    subtitle: "Hydrologie",
+    effect: "Ermöglicht das Anlegen von Flussrenaturierungen & Poldern.",
+    tip: "Nötig für Renaturierungsbauten & Altarme.",
+    strengthLabel: "Reichweite"
+  },
+  act_plant: {
+    title: "Ufer aufwerten",
+    subtitle: "Vegetation",
+    effect: "Initiiert das Bepflanzen von Auwäldern & Uferwiesen.",
+    tip: "Uferbepflanzung bindet CO₂ & schafft Biotope.",
+    strengthLabel: "Auswirkung"
+  },
+  act_research: {
+    title: "Gewässer-Forschung",
+    subtitle: "Analyse",
+    effect: "Sammelt ökologische Forschungsdaten durch Gewässeranlayse.",
+    tip: "Wird zur Freischaltung neuer Öko-Techs benötigt.",
+    strengthLabel: "Ertrag"
+  },
+  act_build: {
+    title: "Errichten",
+    subtitle: "Strukturen",
+    effect: "Baut Spezialbauten (Fischtreppen, Klärwerke) aus dem Katalog.",
+    tip: "Höhere Stärke senkt Baukosten um bis zu 2 €!",
+    strengthLabel: "Budgetrabatt"
+  }
+};
+
+const getCardStrengthEffectResult = (cardId: string, strength: number) => {
+  if (cardId === 'act_funding') {
+    const reward = Math.round(4 + strength * 2.5);
+    return `+${reward} € Budget`;
+  }
+  if (cardId === 'act_research') {
+    const reward = Math.ceil(strength / 1.5);
+    return `+${reward} 🧪 Forschung`;
+  }
+  if (cardId === 'act_build') {
+    const discount = strength === 3 || strength === 4 ? 1 : strength === 5 ? 2 : 0;
+    return discount > 0 ? `-${discount} € Rabatt` : 'Normalpreis';
+  }
+  if (cardId === 'act_hydrology') {
+    return `Einflussbereich ${strength} Felder`;
+  }
+  if (cardId === 'act_plant') {
+    return 'Optimales Wachstum';
+  }
+  return '';
+};
+
 export default function App() {
   // ── States ──
   const [grid, setGrid] = useState<TileData[][]>([]);
   const [stats, setStats] = useState<GameStats>({
     round: 1,
-    year: 2026,
     season: 0,
+    year: 2026,
     budget: 25,
     researchPoints: 3,
     naturePoints: 0,
@@ -62,7 +128,29 @@ export default function App() {
 
   const [cards, setCards] = useState<ActionCard[]>(INITIAL_ACTION_CARDS);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   const [selectedCoord, setSelectedCoord] = useState<{ gx: number; gy: number } | null>({ gx: 10, gy: 8 });
+  const [hasHoverSupport, setHasHoverSupport] = useState(true);
+
+  useEffect(() => {
+    const hoverQuery = window.matchMedia('(hover: hover)');
+    setHasHoverSupport(hoverQuery.matches);
+    const listener = (e: MediaQueryListEvent) => setHasHoverSupport(e.matches);
+    
+    if (hoverQuery.addEventListener) {
+      hoverQuery.addEventListener('change', listener);
+    } else {
+      hoverQuery.addListener?.(listener);
+    }
+
+    return () => {
+      if (hoverQuery.removeEventListener) {
+        hoverQuery.removeEventListener('change', listener);
+      } else {
+        hoverQuery.removeListener?.(listener);
+      }
+    };
+  }, []);
   
   const [researchNodes, setResearchNodes] = useState<ResearchNode[]>(RESEARCH_TECH_TREE);
   const [speciesList, setSpeciesList] = useState<Species[]>(BIOTOP_SPECIES);
@@ -1103,51 +1191,121 @@ export default function App() {
       <main className="flex-1 flex flex-col md:grid md:grid-cols-[104px_1fr_360px] gap-4 p-4 overflow-hidden">
         
         {/* LEFT COLUMN: Arche Nova Power Actions Strip */}
-        <aside className="bg-parch-0 border border-ink-1/10 rounded-2xl p-3.5 flex flex-row md:flex-col gap-2.5 items-stretch justify-between overflow-x-auto md:overflow-y-auto tablet-scroll z-10 w-full md:w-auto shadow-md">
-          <div className="flex flex-row md:flex-col gap-2.5 w-full">
-            <span className="font-serif font-bold text-[9px] text-ink-3 tracking-widest uppercase text-center hidden md:block">
+        <aside className="bg-parch-0 border border-ink-1/10 rounded-2xl p-3.5 flex flex-row md:flex-col gap-2.5 items-stretch justify-between overflow-x-auto md:overflow-visible tablet-scroll z-20 w-full md:w-auto shadow-md">
+          <div className="flex flex-row md:flex-col gap-2.5 w-full md:overflow-visible">
+            <span className="font-serif font-bold text-[9px] text-ink-3 tracking-widest uppercase text-center hidden md:block select-none mb-1">
               Aktionen
             </span>
             {cards.map(card => {
               const isSelected = selectedCardId === card.id;
+              const isHovered = hoveredCardId === card.id && hasHoverSupport;
+              const details = CARD_DETAILS[card.id] || {
+                title: card.name,
+                subtitle: "Kompakt",
+                effect: "Standardaktion ausführen.",
+                tip: "Klicke zum Auswählen.",
+                strengthLabel: "Effektstärke"
+              };
+              const renderedStrengthEffect = getCardStrengthEffectResult(card.id, card.strength);
+
               return (
-                <button
+                <div
                   key={card.id}
-                  onClick={() => handlePlayCard(card.id)}
-                  className={`flex-1 md:flex-initial p-2.5 rounded-lg border-2 text-center flex flex-col items-center justify-between gap-1.5 transition-all select-none min-w-[70px] ${
-                    isSelected
-                      ? 'bg-ink-1 text-parch-1 border-ink-1 shadow-lg scale-95 md:scale-100 translate-x-[2px]'
-                      : 'bg-parch-1 border-ink-1/20 hover:border-ink-2 shadow-sm'
-                  }`}
+                  className="w-[72px] h-[84px] md:w-full md:h-[96px] shrink-0 relative"
+                  onMouseEnter={() => setHoveredCardId(card.id)}
+                  onMouseLeave={() => setHoveredCardId(null)}
                 >
-                  <span className="text-2xl mt-0.5 filter drop-shadow">{card.emoji}</span>
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-mono uppercase tracking-wide leading-none select-none">
-                      Punkte
-                    </span>
-                    <span className="text-lg font-serif font-bold leading-none select-none">
-                      {card.strength}
-                    </span>
-                  </div>
+                  <button
+                    onClick={() => handlePlayCard(card.id)}
+                    className={`absolute left-0 top-0 rounded-xl border-2 text-center flex items-center justify-between transition-all duration-300 ease-out select-none cursor-pointer ${
+                      isHovered
+                        ? 'w-[280px] sm:w-[335px] h-auto min-h-full z-50 bg-parch-0 border-ink-1 shadow-2xl p-3 text-ink-0'
+                        : isSelected
+                          ? 'w-full h-full bg-ink-1 text-parch-1 border-ink-1 shadow-md p-2.5 translate-x-[2px]'
+                          : 'w-full h-full bg-parch-1 border-ink-1/20 hover:border-ink-2 shadow-sm p-2.5'
+                    }`}
+                  >
+                    {isHovered ? (
+                      <div className="flex items-stretch gap-3 w-full min-h-full text-left">
+                        {/* Compact left column visually mirroring the card core state */}
+                        <div className="flex flex-col items-center justify-between shrink-0 border-r border-ink-1/10 pr-2.5 min-w-[54px] self-stretch py-0.5">
+                          <span className="text-2xl mt-0.5 filter drop-shadow">{card.emoji}</span>
+                          <div className="flex flex-col items-center leading-none">
+                            <span className="text-[8px] font-mono text-ink-3 uppercase tracking-wider">Stärke</span>
+                            <span className="text-md font-serif font-bold text-ink-1 mt-0.5">{card.strength}</span>
+                          </div>
+                          <div className="flex gap-0.5 justify-center">
+                            {[1, 2, 3, 4, 5].map(idx => (
+                              <div
+                                key={idx}
+                                className={`w-1 h-2 rounded-full ${
+                                  idx <= card.strength ? 'bg-eco-primary' : 'bg-parch-3/60'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
 
-                  {/* Pips visual meters */}
-                  <div className="flex gap-0.5 justify-center mt-1">
-                    {[1, 2, 3, 4, 5].map(idx => (
-                      <div
-                        key={idx}
-                        className={`w-1 h-3 rounded-full ${
-                          idx <= card.strength
-                            ? isSelected ? 'bg-parch-1' : 'bg-eco-primary'
-                            : 'bg-parch-3/60'
-                        }`}
-                      />
-                    ))}
-                  </div>
+                        {/* Detailed expansion card body */}
+                        <div className="flex-1 flex flex-col justify-between min-h-full min-w-0 py-0.5">
+                          <div>
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-serif font-bold text-xs uppercase text-ink-1 overflow-hidden text-ellipsis whitespace-nowrap">
+                                {details.title}
+                              </span>
+                              <span className="text-[8px] font-mono bg-parch-3 text-ink-2 px-1.5 rounded py-0.5 shrink-0 uppercase tracking-widest font-semibold font-bold">
+                                {details.subtitle}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-ink-2 leading-snug mt-1 select-none whitespace-normal">
+                              {details.effect}
+                            </p>
+                          </div>
 
-                  <span className="text-[8px] font-mono leading-none uppercase select-none opacity-80 max-w-[50px] overflow-hidden text-ellipsis whitespace-nowrap">
-                    {card.name.split(' ')[0]}
-                  </span>
-                </button>
+                          <div className="border-t border-dashed border-ink-1/10 pt-1.2 mt-1">
+                            <div className="flex items-center justify-between text-[9px] font-mono">
+                              <span className="text-ink-3 uppercase tracking-wider">{details.strengthLabel}:</span>
+                              <span className="font-bold text-eco-primary shrink-0">{renderedStrengthEffect}</span>
+                            </div>
+                            <p className="text-[9px] text-ink-3 italic mt-0.5 leading-snug whitespace-normal">
+                              💡 {details.tip}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-between w-full h-full gap-1">
+                        <span className="text-2xl mt-0.5 filter drop-shadow">{card.emoji}</span>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-mono uppercase tracking-wide leading-none select-none text-ink-3">
+                            Punkte
+                          </span>
+                          <span className={`text-lg font-serif font-bold leading-none mt-0.5 select-none ${isSelected ? 'text-parch-1' : 'text-ink-0'}`}>
+                            {card.strength}
+                          </span>
+                        </div>
+
+                        {/* Pips visual meters */}
+                        <div className="flex gap-0.5 justify-center mt-0.5">
+                          {[1, 2, 3, 4, 5].map(idx => (
+                            <div
+                              key={idx}
+                              className={`w-1 h-2.5 rounded-full ${
+                                idx <= card.strength
+                                  ? isSelected ? 'bg-parch-1' : 'bg-eco-primary'
+                                  : 'bg-parch-3/60'
+                              }`}
+                            />
+                          ))}
+                        </div>
+
+                        <span className="text-[8px] font-mono leading-none uppercase select-none opacity-80 max-w-[50px] overflow-hidden text-ellipsis whitespace-nowrap">
+                          {card.name.split(' ')[0]}
+                        </span>
+                      </div>
+                    )}
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -1403,10 +1561,71 @@ export default function App() {
               />
             </div>
           ) : (
-            <div className="flex items-center justify-center p-4 bg-parch-3/30 border border-ink-1/10 rounded-xl w-full text-center py-6">
-              <p className="font-serif italic text-ink-2 text-xs sm:text-sm">
-                💡 Wähle die Aktionskarte <span className="font-bold text-ink-1">"Bauen & Errichten (🏗️)"</span> links aus, um den Baukatalog zu öffnen und Projekte an der Rur anzulegen.
-              </p>
+            <div className="w-full flex flex-col md:flex-row items-stretch gap-4 bg-parch-1/80 border border-ink-1/10 rounded-xl p-3.5 shadow-inner">
+              {(() => {
+                const activeCardIdForDetail = hoveredCardId || selectedCardId;
+                const card = cards.find(c => c.id === activeCardIdForDetail);
+                if (!card) {
+                  return (
+                    <div className="flex items-center justify-center p-2.5 w-full text-center">
+                      <p className="font-serif italic text-ink-2 text-xs sm:text-sm">
+                        💡 Wähle die Aktionskarte <span className="font-bold text-ink-1">"Bauen & Errichten (🏗️)"</span> links aus, um den Baukatalog zu öffnen, oder klicke eine andere Karte an, um sie auszuspielen.
+                      </p>
+                    </div>
+                  );
+                }
+                const details = CARD_DETAILS[card.id] || {
+                  title: card.name,
+                  subtitle: "Aktion",
+                  effect: "Wähle diese Aktion, um strategische Vorteile freizuschalten.",
+                  tip: "Klicke zum Interagieren.",
+                  strengthLabel: "Belohnung"
+                };
+                const renderedStrengthEffect = getCardStrengthEffectResult(card.id, card.strength);
+                return (
+                  <div className="flex flex-col sm:flex-row items-start gap-4 w-full">
+                    <div className="text-4xl bg-parch-2 p-3 rounded-xl border border-ink-1/10 flex items-center justify-center shrink-0 min-w-[60px] min-h-[60px] shadow-sm select-none">
+                      {card.emoji}
+                    </div>
+                    <div className="flex-1 flex flex-col md:grid md:grid-cols-[220px_1fr] md:gap-4 items-start gap-2 text-left">
+                      <div className="w-full">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-serif font-bold text-xs uppercase tracking-wide text-ink-0">{details.title}</h4>
+                          <span className="text-[8px] font-mono bg-parch-3 text-ink-2 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
+                            {details.subtitle}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5 font-mono text-[10px] text-ink-3">
+                          <span>Aktuelle Stärke:</span>
+                          <span className="font-bold text-eco-primary font-serif text-xs">{card.strength} von 5</span>
+                          <div className="flex gap-0.5">
+                            {[1, 2, 3, 4, 5].map(idx => (
+                              <div
+                                key={idx}
+                                className={`w-1 h-2 rounded-full ${
+                                  idx <= card.strength ? 'bg-eco-primary' : 'bg-parch-3/60'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="w-full text-[11px] leading-relaxed">
+                        <p className="text-ink-1 font-sans">{details.effect}</p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 border-t border-dashed border-ink-1/10 pt-1.5">
+                          <div className="flex items-center gap-1">
+                            <span className="text-ink-3 font-mono text-[9px] uppercase tracking-wider">{details.strengthLabel}:</span>
+                            <span className="font-bold text-eco-primary font-mono text-[9.5px]">{renderedStrengthEffect}</span>
+                          </div>
+                          <span className="text-ink-3 tracking-wide text-[10px] italic sm:ml-auto">
+                            💡 {details.tip}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

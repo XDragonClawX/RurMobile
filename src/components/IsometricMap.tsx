@@ -5,6 +5,8 @@
 
 import React, { useRef, useEffect, useState, MouseEvent, TouchEvent } from 'react';
 import { TileData, TerrainType, BuildingType } from '../types';
+import { BUILDINGS_CATALOG } from '../gameData';
+import { HelpCircle, X, Move, MousePointerClick, ZoomIn, Eye, Map } from 'lucide-react';
 
 interface IsometricMapProps {
   grid: TileData[][];
@@ -25,6 +27,24 @@ const T_STYLE: Record<TerrainType, { fill: string; stroke: string; accent: strin
   Acker:    { fill: '#edd65e', stroke: '#a8851c', accent: '#faecc0' },
   Gewerbe:  { fill: '#808c90', stroke: '#454c50', accent: '#d5dcde' },
   Siedlung: { fill: '#e07638', stroke: '#904018', accent: '#fcd3c1' },
+};
+
+const T_NAMES: Record<TerrainType, string> = {
+  Water: 'Rur-Flussbett',
+  Wiese: 'Uferwiese',
+  Auwald: 'Auwald-Biotop',
+  Acker: 'Landwirtschaft',
+  Gewerbe: 'Gewerbegebiet',
+  Siedlung: 'Wohnsiedlung',
+};
+
+const T_EMOJIS: Record<TerrainType, string> = {
+  Water: '💧',
+  Wiese: '🌾',
+  Auwald: '🌲',
+  Acker: '🚜',
+  Gewerbe: '🏭',
+  Siedlung: '🏡',
 };
 
 // Cities markers (gx, gy, name)
@@ -253,6 +273,8 @@ export const IsometricMap: React.FC<IsometricMapProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isPanningMinimap, setIsPanningMinimap] = useState(false);
   const [hoverTile, setHoverTile] = useState<{ gx: number; gy: number } | null>(null);
+  const [touchTooltipTile, setTouchTooltipTile] = useState<{ gx: number; gy: number } | null>(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const dragStart = useRef({ x: 0, y: 0 });
   const currentOffset = useRef({ x: 0, y: 0 });
@@ -1086,6 +1108,8 @@ export const IsometricMap: React.FC<IsometricMapProps> = ({
       const clicked = hitTest(mx, my);
       if (clicked) {
         onSelectTile(clicked.gx, clicked.gy);
+        // Clear touch tooltip on desktop clean click to stay clean
+        setTouchTooltipTile(null);
       }
     }
   };
@@ -1109,6 +1133,12 @@ export const IsometricMap: React.FC<IsometricMapProps> = ({
     if (isDragging) {
       const dx = touch.clientX - dragStart.current.x;
       const dy = touch.clientY - dragStart.current.y;
+      
+      // Clear touch tooltip if user drags more than 15px
+      if (touchTooltipTile && (Math.abs(dx) > 15 || Math.abs(dy) > 15)) {
+        setTouchTooltipTile(null);
+      }
+
       setDragOffset({
         x: currentOffset.current.x + dx,
         y: currentOffset.current.y + dy,
@@ -1137,10 +1167,73 @@ export const IsometricMap: React.FC<IsometricMapProps> = ({
         const clicked = hitTest(mx, my);
         if (clicked) {
           onSelectTile(clicked.gx, clicked.gy);
+          setTouchTooltipTile(clicked); // Save for displaying info bubble on touch
+        } else {
+          setTouchTooltipTile(null);
         }
       }
     }
     setHoverTile(null);
+  };
+
+  // Get active selected/hovered tile data for floating details
+  const activeInfoTile = hoverTile || touchTooltipTile;
+  const hoverTileData = activeInfoTile ? grid[activeInfoTile.gy]?.[activeInfoTile.gx] : null;
+
+  // Calculate pixel position of tooltip to prevent clipping
+  let tooltipStyle: React.CSSProperties = {};
+  let tooltipDirection: 'above' | 'below' = 'above';
+  if (activeInfoTile && canvasRef.current) {
+    const [cx, cy] = getTileCenter(activeInfoTile.gx, activeInfoTile.gy, dragOffset.x, dragOffset.y, zoom);
+    const canvasWidth = canvasRef.current.width || 800;
+    
+    // Constrain X position to prevent horizontal clipping
+    const leftPx = Math.max(160, Math.min(canvasWidth - 160, cx));
+    
+    // Switch to 'below' if there's no space on top
+    if (cy < 220) {
+      tooltipDirection = 'below';
+      tooltipStyle = {
+        position: 'absolute',
+        left: `${leftPx}px`,
+        top: `${cy + 40}px`,
+        transform: 'translateX(-50%)',
+      };
+    } else {
+      tooltipDirection = 'above';
+      tooltipStyle = {
+        position: 'absolute',
+        left: `${leftPx}px`,
+        top: `${cy - 45}px`,
+        transform: 'translate(-50%, -100%)',
+      };
+    }
+  }
+
+  const hoverBuilding = hoverTileData && hoverTileData.buildingId
+    ? BUILDINGS_CATALOG.find(b => b.id === hoverTileData.buildingId)
+    : null;
+
+  const getWRRLLabel = (q: number) => {
+    if (q <= 1.5) return 'Sehr gut';
+    if (q <= 2.5) return 'Gut';
+    if (q <= 3.5) return 'Mäßig';
+    if (q <= 4.5) return 'Unbefriedigend';
+    return 'Sehr schlecht';
+  };
+
+  const getWRRLBadgeStyle = (q: number) => {
+    if (q <= 1.5) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (q <= 2.5) return 'bg-lime-50 text-lime-700 border-lime-200';
+    if (q <= 3.5) return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+    if (q <= 4.5) return 'bg-orange-50 text-orange-700 border-orange-200';
+    return 'bg-red-50 text-red-700 border-red-200';
+  };
+
+  const getFloodRiskBadgeStyle = (risk: 'Niedrig' | 'Mittel' | 'Hoch') => {
+    if (risk === 'Niedrig') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (risk === 'Mittel') return 'bg-amber-50 text-amber-700 border-amber-200';
+    return 'bg-rose-50 text-rose-700 border-rose-200';
   };
 
   return (
@@ -1186,19 +1279,21 @@ export const IsometricMap: React.FC<IsometricMapProps> = ({
       </div>
 
       {/* On-screen Zoom Control for Tablet touch ease */}
-      <div className="absolute bottom-4 left-4 z-40 bg-parch-0/95 border border-ink-1/25 rounded-lg flex items-center gap-3 p-2 shadow-lg scale-90 sm:scale-100">
+      <div className="absolute bottom-4 left-4 z-40 bg-parch-0/95 border-2 border-ink-1 rounded-xl flex items-center gap-3.5 p-2 shadow-xl scale-95 sm:scale-100">
         <button
           onClick={() => setZoom(prev => Math.max(0.65, prev - 0.15))}
-          className="w-10 h-10 rounded bg-parch-2 active:bg-parch-3 text-ink-0 font-bold text-lg flex items-center justify-center border border-ink-1/20 shadow-sm"
+          className="w-11 h-11 rounded-lg bg-parch-2 active:bg-parch-3 hover:border-ink-1 text-ink-0 font-bold text-xl flex items-center justify-center border border-ink-1/25 shadow-sm transition-all cursor-pointer"
+          title="Zoom out"
         >
           −
         </button>
-        <span className="font-mono text-xs text-ink-2 font-medium w-14 text-center">
-          Zoom {Math.round(zoom * 100)}%
+        <span className="font-mono text-xs text-ink-1 font-bold w-14 text-center select-none">
+          {Math.round(zoom * 100)}%
         </span>
         <button
           onClick={() => setZoom(prev => Math.min(1.8, prev + 0.15))}
-          className="w-10 h-10 rounded bg-parch-2 active:bg-parch-3 text-ink-0 font-bold text-lg flex items-center justify-center border border-ink-1/20 shadow-sm"
+          className="w-11 h-11 rounded-lg bg-parch-2 active:bg-parch-3 hover:border-ink-1 text-ink-0 font-bold text-xl flex items-center justify-center border border-ink-1/25 shadow-sm transition-all cursor-pointer"
+          title="Zoom in"
         >
           +
         </button>
@@ -1213,11 +1308,278 @@ export const IsometricMap: React.FC<IsometricMapProps> = ({
               });
             }
           }}
-          className="px-3 h-10 rounded bg-parch-3 active:bg-parch-4 text-ink-0 flex items-center justify-center text-xs font-serif font-semibold border border-ink-1/20 shadow-sm"
+          className="px-3 h-10 rounded bg-parch-3 active:bg-parch-4 hover:border-ink-1 text-ink-0 flex items-center justify-center text-xs font-serif font-semibold border border-ink-1/20 shadow-sm transition-colors"
         >
           Zentrieren
         </button>
+        <button
+          onClick={() => setShowShortcuts(true)}
+          className="px-3 h-10 rounded bg-parch-3 active:bg-parch-4 hover:border-ink-1 text-ink-0 flex items-center justify-center text-xs font-serif font-semibold border border-ink-1/20 shadow-sm gap-1 transition-colors"
+          title="Spielsteuerung & Karteerklärung anzeigen"
+        >
+          <HelpCircle size={14} className="text-ink-2" />
+          <span>Hilfe</span>
+        </button>
       </div>
+
+      {/* ── FLOAT HOVER FLOATING INFO CARD ── */}
+      {activeInfoTile && hoverTileData && (
+        <div
+          style={tooltipStyle}
+          className="z-50 w-[290px] bg-parch-0/95 border-2 border-[#475569] rounded-xl shadow-2xl p-3.5 pointer-events-auto flex flex-col gap-2.5 backdrop-blur-md text-ink-1 text-left font-sans select-none"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-dashed border-ink-1/10 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xl filter drop-shadow">
+                {T_EMOJIS[hoverTileData.terrain] || '❓'}
+              </span>
+              <div className="flex flex-col">
+                <span className="font-serif font-bold text-xs uppercase tracking-wide text-ink-0 leading-normal">
+                  {T_NAMES[hoverTileData.terrain] || hoverTileData.terrain}
+                </span>
+                {hoverTileData.cityName && (
+                  <span className="text-[9px] text-[#4a3520] font-semibold leading-none mt-0.5">
+                    📍 {hoverTileData.cityName}
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1.5 shrink-0 select-none">
+              <div className="font-mono text-[9px] bg-parch-2 border border-ink-1/10 text-ink-3 px-1.5 py-0.5 rounded-md leading-none uppercase tracking-widest font-bold">
+                X:{activeInfoTile.gx} Y:{activeInfoTile.gy}
+              </div>
+              {touchTooltipTile && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTouchTooltipTile(null);
+                  }}
+                  className="text-ink-3 hover:text-ink-1 p-1 hover:bg-parch-2 rounded transition-colors cursor-pointer"
+                  title="Schließen"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Installed Structure / Building details */}
+          {hoverBuilding ? (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5 flex items-start gap-2 select-none">
+              <span className="text-xl mt-0.5 filter drop-shadow-sm shrink-0">
+                {hoverBuilding.icon || '🏗️'}
+              </span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-700 leading-none font-bold">
+                  Struktur Errichtet
+                </span>
+                <span className="font-serif font-bold text-[11px] text-ink-0 leading-tight mt-1">
+                  {hoverBuilding.name}
+                </span>
+                <p className="text-[9.5px] text-ink-2 mt-0.5 leading-snug font-normal select-none whitespace-normal">
+                  {hoverBuilding.description}
+                </p>
+              </div>
+            </div>
+          ) : hoverTileData.buildingId === 'factory' ? (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 flex items-start gap-2 select-none">
+              <span className="text-xl mt-0.5 shrink-0">🏭</span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-amber-700 leading-none font-bold">
+                  Industrie-Areal
+                </span>
+                <span className="font-serif font-bold text-[11px] text-ink-0 leading-snug mt-1">
+                  Papierfabrik Düren
+                </span>
+                <p className="text-[9.5px] text-ink-2 mt-0.5 leading-snug font-normal select-none whitespace-normal">
+                  Hauptverbraucher des Rur-Wassers. Beeinflusst die Wasserqualität des Unterlaufs intensiv.
+                </p>
+              </div>
+            </div>
+          ) : hoverTileData.hasRiverConnection ? (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-2 select-none text-[9.5px]">
+              <span className="font-bold text-blue-700">🌊 Rur-Flussverbindung</span>
+              <p className="text-ink-2 leading-snug mt-0.5 text-[9px] whitespace-normal">Dient als hydrobiologischer Korridor & Pufferfläche.</p>
+            </div>
+          ) : null}
+
+          {/* Specs Details Grid */}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-[10px] select-none">
+            {/* WRRL Ecology Status */}
+            <div className="flex flex-col gap-0.5">
+              <span className="font-mono text-[8.5px] uppercase tracking-wider text-ink-3 font-semibold">WRRL Zustand</span>
+              <div className={`border rounded-lg px-2 py-1 text-[10px] font-bold text-center leading-normal select-none ${getWRRLBadgeStyle(hoverTileData.wrrl_quality)}`}>
+                Klasse {hoverTileData.wrrl_quality.toFixed(1)}
+                <div className="text-[7.5px] font-medium leading-none mt-0.5">{getWRRLLabel(hoverTileData.wrrl_quality)}</div>
+              </div>
+            </div>
+
+            {/* Flood Risk */}
+            <div className="flex flex-col gap-0.5">
+              <span className="font-mono text-[8.5px] uppercase tracking-wider text-ink-3 font-semibold">Flutrisiko</span>
+              <div className={`border rounded-lg px-2 py-1 text-[10px] font-bold text-center leading-normal select-none ${getFloodRiskBadgeStyle(hoverTileData.flood_risk)}`}>
+                {hoverTileData.flood_risk}
+                <div className="text-[7.5px] font-medium leading-none mt-0.5">Hochwasserrisiko</div>
+              </div>
+            </div>
+
+            {/* Biodiversity / FFH Wert */}
+            <div className="col-span-2 flex flex-col gap-1 mt-1 border-t border-dashed border-ink-1/10 pt-2 select-none">
+              <div className="flex items-center justify-between text-[9px] font-mono text-ink-3">
+                <span>FFH-BIODIVERSITÄT:</span>
+                <span className="font-bold text-emerald-600">{hoverTileData.ffh_value}%</span>
+              </div>
+              <div className="w-full bg-parch-3 rounded-full h-1.5 overflow-hidden">
+                <div
+                  style={{ width: `${hoverTileData.ffh_value}%` }}
+                  className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                />
+              </div>
+            </div>
+
+            {/* Moisture / Bodenfeuchtigkeit */}
+            <div className="col-span-2 flex flex-col gap-1 select-none">
+              <div className="flex items-center justify-between text-[9px] font-mono text-ink-3">
+                <span>BODENFEUCHTIGKEIT:</span>
+                <span className="font-bold text-blue-600">{hoverTileData.moisture}%</span>
+              </div>
+              <div className="w-full bg-parch-3 rounded-full h-1.5 overflow-hidden">
+                <div
+                  style={{ width: `${hoverTileData.moisture}%` }}
+                  className="bg-blue-400 h-full rounded-full transition-all duration-300"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MAP SHORTCUTS / STEUERUNG HELP DIALOG ── */}
+      {showShortcuts && (
+        <div className="fixed inset-0 bg-ink-0/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div
+            className="bg-parch-0 border-2 border-ink-1 rounded-xl shadow-2xl max-w-md w-full overflow-hidden relative paper-card text-left text-ink-1 font-sans select-none animate-in fade-in zoom-in duration-200"
+            id="map-shortcuts-dialog"
+          >
+            {/* Corner Decorative Marks */}
+            <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-ink-3" />
+            <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-ink-3" />
+            <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-ink-3" />
+            <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-ink-3" />
+
+            {/* Header */}
+            <div className="bg-ink-1 px-4 py-3 flex items-center justify-between border-b border-ink-0">
+              <div className="flex items-center gap-2">
+                <HelpCircle size={18} className="text-parch-2" />
+                <h3 className="font-serif font-bold text-parch-1 text-sm sm:text-base tracking-wide">
+                  Karte & Steuerung
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowShortcuts(false)}
+                className="text-parch-3 hover:text-parch-1 p-1 hover:bg-white/10 rounded transition-colors"
+                aria-label="Schließen"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Dialog Content */}
+            <div className="p-5 flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
+              <p className="text-xs text-ink-2 leading-relaxed">
+                Willkommen an der Rur! Du kannst dich völlig frei auf dem interaktiven Spielplan bewegen. Hier sind die wichtigsten Steuerungsmöglichkeiten für Desktop und Mobilgeräte:
+              </p>
+
+              <div className="flex flex-col gap-3.5">
+                {/* 1. Drag to Pan */}
+                <div className="flex gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-parch-3 border border-ink-1/10 flex items-center justify-center shrink-0">
+                    <Move size={14} className="text-ink-0" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <h4 className="font-serif font-bold text-xs text-ink-0 leading-tight">
+                      Karte verschieben (Pan)
+                    </h4>
+                    <p className="text-[11px] text-ink-2 leading-relaxed mt-0.5">
+                      Halte die linke Maustaste gedrückt und ziehe, um die Ansicht zu verschieben. Auf Mobilgeräten kannst du einfach mit einem Finger wischen oder wischen/ziehen.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 2. Zoom Controls */}
+                <div className="flex gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-parch-3 border border-ink-1/10 flex items-center justify-center shrink-0">
+                    <ZoomIn size={14} className="text-ink-0" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <h4 className="font-serif font-bold text-xs text-ink-0 leading-tight">
+                      Karten-Zoom
+                    </h4>
+                    <p className="text-[11px] text-ink-2 leading-relaxed mt-0.5">
+                      Verwende das Mausrad zum stufenlosen Heranzuomen, oder nutze die bequemen <span className="font-mono bg-parch-2 px-1 py-0.2 rounded border border-ink-1/10 text-[10px]">+</span> und <span className="font-mono bg-parch-2 px-1 py-0.2 rounded border border-ink-1/10 text-[10px]">−</span> Tasten in der Zoomleiste unten links.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 3. Mouse Hover Details */}
+                <div className="flex gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-parch-3 border border-ink-1/10 flex items-center justify-center shrink-0">
+                    <Eye size={14} className="text-ink-0" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <h4 className="font-serif font-bold text-xs text-ink-0 leading-tight">
+                      Feld-Details (Hover)
+                    </h4>
+                    <p className="text-[11px] text-ink-2 leading-relaxed mt-0.5">
+                      Bewege deine Maus über ein beliebiges Feld, um sofort ein Info-Fenster mit Werten wie dem Ökologie-Zustand (WRRL), dem Flutrisiko und der Bodenfeuchtigkeit zu öffnen.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 4. Click tile to select */}
+                <div className="flex gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-parch-3 border border-ink-1/10 flex items-center justify-center shrink-0">
+                    <MousePointerClick size={14} className="text-ink-0" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <h4 className="font-serif font-bold text-xs text-ink-0 leading-tight">
+                      Feld auswählen & Bauen
+                    </h4>
+                    <p className="text-[11px] text-ink-2 leading-relaxed mt-0.5">
+                      Klicke oder tippe auf ein Hexagon-Feld, um es zu fokussieren. Dies zeigt dir detaillierte Kennzahlen im rechten Info-Panel an und ermöglicht es dir, freigeschaltete Projekte zu errichten.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 5. Minimap navigation */}
+                <div className="flex gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-parch-3 border border-ink-1/10 flex items-center justify-center shrink-0">
+                    <Map size={14} className="text-ink-0" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <h4 className="font-serif font-bold text-xs text-ink-0 leading-tight">
+                      Minikarte / Schnellreise
+                    </h4>
+                    <p className="text-[11px] text-ink-2 leading-relaxed mt-0.5">
+                      Oben links findest du eine verkleinerte Übersicht des Flussverlaufs. Klicke oder ziehe dort, um blitzschnell zu einem anderen Ort der Rur zu springen.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <button
+                onClick={() => setShowShortcuts(false)}
+                className="mt-2 w-full h-10 border border-ink-1 hover:bg-ink-1 hover:text-parch-1 rounded-lg text-xs font-serif font-bold transition-all shadow-sm active:scale-[0.98] select-none text-ink-0 bg-parch-2 cursor-pointer"
+              >
+                Verstanden & Weiter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
