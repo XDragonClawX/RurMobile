@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -928,611 +928,358 @@ export default function App() {
   const isLachsRenaturierungUnlocked = researchNodes.find(n => n.id === 'schoeller_renat')?.unlocked;
   const activeBuildCard = cards.find(c => c.id === 'act_build');
   const selectedTile = selectedCoord ? grid[selectedCoord.gy]?.[selectedCoord.gx] : null;
-  const buildFlowSteps = [
-    { label: 'Aktion', done: selectedCardId === 'act_build', active: selectedCardId !== 'act_build' },
-    { label: 'Massnahme', done: Boolean(selectedBuilding), active: selectedCardId === 'act_build' && !selectedBuilding },
-    { label: 'Kachel', done: Boolean(selectedBuilding && selectedCoord), active: Boolean(selectedBuilding) },
-    { label: 'Bestaetigen', done: false, active: Boolean(selectedBuilding && selectedCoord) }
-  ];
+
+  // ── Navigation & Sheet State ──────────────────────────
+  const [activeNavTab, setActiveNavTab] = useState<'simulation' | 'stats' | 'history' | 'build'>('simulation');
+  const [buildSheetTab, setBuildSheetTab] = useState<'aktionen' | 'bauen'>('aktionen');
+  const [sheetExpanded, setSheetExpanded] = useState(false);
+
+  // ── Derived helpers ──────────────────────────────────
+  const wrrlLabel = stats.globalWrrl >= 70 ? 'EXC' : stats.globalWrrl >= 45 ? 'OK' : 'LOW';
+  const ffhLabel  = stats.globalFfh  >= 70 ? 'EXC' : stats.globalFfh  >= 45 ? 'STB' : 'LOW';
 
   return (
-    <div className="relative w-screen min-h-dvh h-dvh flex flex-col md:grid md:grid-rows-[auto_1fr_auto] bg-parch-1 font-sans select-none paper-overlay overflow-hidden">
-      
-      {/* ── TOPBAR: Key Landscape Indices ── */}
-      {/* ── HUD: Kartentisch-Stil — dunkler Balken, Playfair Wortmarke ── */}
-      <header
-        className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 z-30 mx-4 mt-4 px-4 py-3 sm:px-5 rounded-2xl"
-        style={{
-          background: 'rgba(34,40,42,0.94)',
-          boxShadow: '0 1px 0 rgba(250,247,240,.08) inset, 0 4px 20px rgba(0,0,0,.22)',
-          backdropFilter: 'blur(8px)'
-        }}
-      >
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5">
-            <span className="font-serif font-medium text-base sm:text-lg lg:text-xl tracking-tight" style={{ color: '#FAF7F0', letterSpacing: '-0.01em' }}>
-              RurNova
-            </span>
-            <span className="text-[9px] sm:text-[9px] px-1.5 py-0.5 rounded font-sans font-semibold uppercase tracking-widest hidden sm:inline" style={{ background: 'rgba(250,247,240,.12)', color: 'rgba(250,247,240,.55)', fontSize: '8.5px', letterSpacing: '.14em' }}>
-              TABLET PRO
-            </span>
-          </div>
-          <span className="hidden md:block" style={{ font: '400 8.5px/1.3 "Inter", sans-serif', letterSpacing: '.04em', color: 'rgba(250,247,240,.45)', marginTop: '3px' }}>
-            Anstalt für Gewässermanagement Kreis Düren, NRW
-          </span>
+    <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: '#0d1417', fontFamily: '"Inter", system-ui, sans-serif', overflow: 'hidden' }}>
+
+      {/* ══ TOP HEADER ══ */}
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px', background: 'rgba(36,43,46,0.82)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 4px 20px rgba(0,0,0,0.28)', flexShrink: 0, zIndex: 30 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="material-symbols-outlined" style={{ color: '#9ed1bd', fontSize: 22 }}>eco</span>
+          <span style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 800, fontSize: 18, color: '#9ed1bd', letterSpacing: '-0.02em' }}>RurNova</span>
         </div>
-
-        {/* Turn Season Banner */}
-        <div className="flex items-center gap-1.5 sm:gap-2 border-l border-ink-1/10 pl-2 sm:pl-3">
-          {/* Season + Runde — CD HUD style */}
-          <div className="hidden sm:flex items-center gap-3">
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ font: '500 17px/1 "Playfair Display", serif', color: '#FAF7F0', letterSpacing: '-0.01em' }}>
-                {stats.year}
-              </div>
-              <div style={{ font: '600 8px/1 "Inter", sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(250,247,240,.5)', marginTop: '4px' }}>
-                {SEASONS[stats.season]}
-              </div>
-            </div>
-            <div style={{ width: 1, height: 26, background: 'rgba(250,247,240,.15)' }} />
-            <div style={{ font: '500 9.5px/1 "JetBrains Mono", monospace', color: 'rgba(250,247,240,.5)', letterSpacing: '.04em' }}>
-              RND <span style={{ font: '500 14px/1 "Playfair Display", serif', color: '#FAF7F0' }}>{stats.round}</span>
-            </div>
-          </div>
-          {/* Mobile */}
-          <div className="flex sm:hidden flex-col items-center gap-0.5">
-            <span style={{ font: '500 14px/1 "Playfair Display", serif', color: '#FAF7F0' }}>{stats.year}</span>
-            <span style={{ font: '600 7.5px/1 "Inter", sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(250,247,240,.5)' }}>{SEASONS[stats.season].slice(0,4)}</span>
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+          <span className="label-caps" style={{ color: '#c0c9c3' }}>RUNDE {stats.round}/40</span>
+          <span className="label-caps" style={{ color: '#9ed1bd' }}>{SEASONS[stats.season]} {stats.year}</span>
         </div>
-
-        {/* Resource Indicators (Always compact, perfect for mobile and desktop) */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Budget — Glyph-Ring §04 */}
-          <div className="flex items-center gap-2">
-            <span className="glyph-ring" style={{ width: 30, height: 30, fontSize: 13, color: '#D9BC7E' }}>€</span>
-            <div className="flex flex-col">
-              <span style={{ font: '500 15px/1 "Playfair Display", serif', color: '#FAF7F0', letterSpacing: '-0.01em' }}>
-                {stats.budget}
-              </span>
-              <span style={{ font: '600 8px/1 "Inter", sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(250,247,240,.5)', marginTop: '3px' }} className="hidden sm:block">
-                Budget
-              </span>
-            </div>
-          </div>
-
-          <div style={{ width: 1, height: 26, background: 'rgba(250,247,240,.15)' }} />
-
-          {/* Forschung — Glyph-Ring */}
-          <div className="flex items-center gap-2">
-            <span className="glyph-ring" style={{ width: 30, height: 30, fontSize: 13, color: '#B89A78' }}>R</span>
-            <div className="flex flex-col">
-              <span style={{ font: '500 15px/1 "Playfair Display", serif', color: '#FAF7F0', letterSpacing: '-0.01em' }}>
-                {stats.researchPoints}
-              </span>
-              <span style={{ font: '600 8px/1 "Inter", sans-serif', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(250,247,240,.5)', marginTop: '3px' }} className="hidden sm:block">
-                Forschung
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Toggle for Statistics */}
-        <button
-          onClick={() => setIsHeaderExpanded(!isHeaderExpanded)}
-          aria-expanded={isHeaderExpanded}
-          aria-label="Landschaftsindizes ein- oder ausklappen"
-          className="flex lg:hidden min-h-11 items-center gap-1 rounded-lg px-3 py-2 text-xs font-sans font-semibold transition-colors ml-auto select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-eco-primary"
-          style={{ background: 'rgba(250,247,240,.10)', border: '1px solid rgba(250,247,240,.18)', color: 'rgba(250,247,240,.8)', letterSpacing: '.06em' }}
-        >
-          <span className="text-sm">📊</span>
-          <BarChart3 className="w-4 h-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Indizes</span>
-          <svg 
-            className={`w-3 h-3 text-ink-3 transition-transform duration-300 ${isHeaderExpanded ? 'rotate-180' : 'rotate-0'}`} 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={handleUndo}
+            disabled={undoHistory.length === 0}
+            style={{ width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: undoHistory.length > 0 ? 'rgba(158,209,189,.12)' : 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.10)', color: undoHistory.length > 0 ? '#9ed1bd' : '#404945', transition: 'all .14s' }}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        {/* Global Statistics Indices - Desktop inline / Mobile Collapsible */}
-        <div className={`
-          ${isHeaderExpanded ? 'flex' : 'hidden'} 
-          lg:flex items-center w-full lg:w-auto mt-2 lg:mt-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-ink-1/10 border-dashed max-w-full overflow-x-auto tablet-scroll py-0.5
-        `}>
-          <div className="flex flex-wrap lg:flex-nowrap items-center gap-1.5 sm:gap-2 w-full lg:w-auto">
-            {[
-              { label: 'Güte (WRRL)',       value: stats.globalWrrl,  barColor: '#2A6F7E', textColor: '#2A6F7E' },
-              { label: 'Artenschutz (FFH)', value: stats.globalFfh,   barColor: '#4A7A3A', textColor: '#4A7A3A' },
-              { label: 'Durchgängigkeit',   value: stats.continuity,  barColor: '#A7853A', textColor: '#A7853A' },
-              { label: 'Klimarisiko',       value: stats.climateRisk, barColor: '#9C3A22', textColor: '#9C3A22' }
-            ].map(score => (
-              <div
-                key={score.label}
-                style={{
-                  background: 'rgba(250,247,240,.10)',
-                  border: '1px solid rgba(250,247,240,.14)',
-                  borderRadius: 10,
-                  padding: '8px 12px',
-                  minWidth: 90,
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 5
-                }}
-              >
-                <span style={{ font: '600 8px/1 "Inter", sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(250,247,240,.45)' }}>
-                  {score.label}
-                </span>
-                <span style={{ font: '500 16px/1 "Playfair Display", serif', color: '#FAF7F0', letterSpacing: '-0.01em' }}>
-                  {score.value}%
-                </span>
-                <div style={{ height: 4, background: 'rgba(250,247,240,.14)', borderRadius: 999, overflow: 'hidden' }}>
-                  <div style={{ width: `${score.value}%`, height: '100%', background: score.barColor, borderRadius: 999, transition: 'width .4s cubic-bezier(.3,.7,.4,1)' }} />
-                </div>
-              </div>
-            ))}
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>undo</span>
+          </button>
+          <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(158,209,189,.14)', border: '1.5px solid rgba(158,209,189,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#9ed1bd' }}>account_circle</span>
           </div>
         </div>
       </header>
 
-      {/* ── MAIN WORKSPACE: Split Sidebars ── */}
-      {/* Main — Kartentisch: warmer Pergament-Hintergrund mit subtiler Rasterstruktur */}
-      <main className="flex-1 min-h-0 flex flex-col md:grid md:grid-cols-[104px_1fr_360px] gap-3 md:gap-4 p-3 md:p-4 overflow-hidden map-tisch">
-        
-        {/* LEFT COLUMN: Arche Nova Power Actions Strip */}
-        <aside className="rur-panel rounded-xl md:rounded-2xl p-2.5 md:p-3.5 flex flex-row md:flex-col gap-2.5 items-stretch justify-between overflow-x-auto md:overflow-y-auto tablet-scroll z-10 w-full md:w-auto">
-          <div className="flex flex-row md:flex-col gap-2.5 w-full">
-            <span className="font-serif font-bold text-[9px] text-ink-3 tracking-widest uppercase text-center hidden md:block">
-              Aktionen
-            </span>
-            {cards.map(card => {
-              const isSelected = selectedCardId === card.id;
+      {/* ══ STAT HUD ROW ══ */}
+      <div style={{ padding: '8px 12px 0', flexShrink: 0, zIndex: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+          <div className="stat-card earth">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#A68966' }}>payments</span>
+              <span className="label-caps" style={{ color: '#8a938e' }}>BUDGET</span>
+            </div>
+            <div className="data-num" style={{ color: '#dde4e7' }}>{stats.budget}€</div>
+            <div style={{ fontSize: 10, color: '#A68966', fontFamily: '"JetBrains Mono", monospace' }}>{stats.researchPoints} 🧪</div>
+          </div>
+          <div className="stat-card eco">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#76C043' }}>diversity_3</span>
+              <span className="label-caps" style={{ color: '#8a938e' }}>BIO</span>
+            </div>
+            <div className="data-num" style={{ color: '#dde4e7' }}>{stats.globalFfh}%</div>
+            <div style={{ fontSize: 10, color: '#76C043', fontFamily: '"JetBrains Mono", monospace' }}>{ffhLabel}</div>
+          </div>
+          <div className="stat-card water">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#4EB3D3' }}>water_drop</span>
+              <span className="label-caps" style={{ color: '#8a938e' }}>H2O</span>
+            </div>
+            <div className="data-num" style={{ color: '#dde4e7' }}>{stats.globalWrrl}%</div>
+            <div style={{ fontSize: 10, color: '#4EB3D3', fontFamily: '"JetBrains Mono", monospace' }}>{wrrlLabel}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ══ MAIN AREA ══ */}
+      <main style={{ position: 'relative', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+
+        {/* MAP */}
+        {activeNavTab === 'simulation' && grid.length > 0 && (
+          <IsometricMap
+            grid={grid}
+            selectedCoord={selectedCoord}
+            onSelectTile={(gx, gy) => {
+              setSelectedCoord({ gx, gy });
+              if (selectedBuilding) {
+                handleBuildDirectly(gx, gy, selectedBuilding);
+              }
+            }}
+            activeOverlay={activeOverlay}
+          />
+        )}
+
+        {/* STATS PANEL */}
+        {activeNavTab === 'stats' && (
+          <div style={{ height: '100%', overflowY: 'auto', padding: '16px 16px 80px' }} className="dark-scroll animate-fade-in">
+            <p style={{ fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 700, fontSize: 16, color: '#dde4e7', marginBottom: 16 }}>Ökologische Indizes</p>
+            {[
+              { label: 'WRRL Gewässerqualität', value: stats.globalWrrl,         color: '#4EB3D3', icon: 'water_drop' },
+              { label: 'FFH Biodiversität',     value: stats.globalFfh,          color: '#76C043', icon: 'diversity_3' },
+              { label: 'Durchgängigkeit',       value: stats.continuity,         color: '#9ed1bd', icon: 'swap_vert' },
+              { label: 'Klimarisiko',           value: stats.climateRisk,        color: '#ffb4ab', icon: 'thermostat' },
+              { label: 'Bürgerakzeptanz',       value: stats.citizenAcceptance,  color: '#A68966', icon: 'people' },
+              { label: 'Erneuerbare Energie',   value: stats.renewableEnergy,    color: '#76C043', icon: 'energy_savings_leaf' },
+            ].map(m => (
+              <div key={m.label} style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: m.color }}>{m.icon}</span>
+                    <span style={{ fontSize: 12, color: '#c0c9c3' }}>{m.label}</span>
+                  </div>
+                  <span style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 13, fontWeight: 600, color: m.color }}>{m.value}%</span>
+                </div>
+                <div style={{ height: 6, background: 'rgba(255,255,255,.08)', borderRadius: 99, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${m.value}%`, background: m.color, borderRadius: 99, transition: 'width .4s cubic-bezier(.3,.7,.4,1)' }} />
+                </div>
+              </div>
+            ))}
+            <div style={{ marginTop: 20, padding: 14, background: 'rgba(47,54,57,.5)', borderRadius: 12, border: '1px solid rgba(255,255,255,.06)' }}>
+              <p className="label-caps" style={{ color: '#8a938e', marginBottom: 8 }}>KLIMABILANZ</p>
+              <div className="data-num" style={{ color: stats.co2Footprint < 100 ? '#76C043' : '#ffb4ab' }}>{stats.co2Footprint}t CO₂</div>
+              <p style={{ fontSize: 11, color: '#8a938e', marginTop: 4 }}>Erneuerbare Anlagen, Auwald & Klärwerk-Upgrades senken den Ausstoß</p>
+            </div>
+            <div style={{ marginTop: 12, padding: 14, background: 'rgba(47,54,57,.5)', borderRadius: 12, border: '1px solid rgba(255,255,255,.06)' }}>
+              <p className="label-caps" style={{ color: '#8a938e', marginBottom: 8 }}>FABRIK SCHOELLERSHAMMER</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 700, fontSize: 14, color: '#dde4e7' }}>{stats.paperFactoryMode}</span>
+                {stats.factoryCooldown > 0 && (
+                  <span className="tag-pill" style={{ color: '#ffb4ab', borderColor: 'rgba(255,180,171,.3)', background: 'rgba(255,180,171,.08)' }}>⏳ {stats.factoryCooldown} Runden</span>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {(['Vollbetrieb','Umrüstung','Stilllegung','Renaturierung'] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => handleFactoryModeChange(m)}
+                    style={{ padding: '8px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: stats.paperFactoryMode === m ? 'rgba(158,209,189,.18)' : 'rgba(255,255,255,.04)', border: `1px solid ${stats.paperFactoryMode === m ? 'rgba(158,209,189,.4)' : 'rgba(255,255,255,.08)'}`, color: stats.paperFactoryMode === m ? '#9ed1bd' : '#8a938e', fontFamily: '"Inter",sans-serif', transition: 'all .14s', cursor: 'pointer' }}
+                  >{m}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* HISTORY / LOG */}
+        {activeNavTab === 'history' && (
+          <div style={{ height: '100%', overflowY: 'auto', padding: '16px 16px 80px' }} className="dark-scroll animate-fade-in">
+            <p style={{ fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 700, fontSize: 16, color: '#dde4e7', marginBottom: 16 }}>Missions & Protokoll</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {quests.map(q => (
+                <div key={q.id} style={{ padding: '12px 14px', background: 'rgba(47,54,57,.5)', borderRadius: 12, border: `1px solid ${q.status === 'completed' ? 'rgba(118,192,67,.3)' : 'rgba(255,255,255,.06)'}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#dde4e7' }}>{q.title}</span>
+                    <span className="tag-pill" style={{ flexShrink: 0, color: q.status === 'completed' ? '#76C043' : '#9ed1bd', borderColor: q.status === 'completed' ? 'rgba(118,192,67,.3)' : 'rgba(158,209,189,.25)', background: q.status === 'completed' ? 'rgba(118,192,67,.1)' : 'rgba(158,209,189,.06)' }}>
+                      {q.status === 'completed' ? '✓ FERTIG' : 'AKTIV'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 12, color: '#8a938e', marginTop: 5, lineHeight: 1.5 }}>{q.description}</p>
+                  <p style={{ fontSize: 11, color: '#9ed1bd', marginTop: 4 }}>{q.rewardText}</p>
+                </div>
+              ))}
+              <div style={{ padding: '12px 14px', background: 'rgba(47,54,57,.5)', borderRadius: 12, border: '1px solid rgba(255,255,255,.06)', marginTop: 4 }}>
+                <p className="label-caps" style={{ color: '#4EB3D3', marginBottom: 10 }}>BIOTRACK — WIEDERANSIEDLUNG</p>
+                {speciesList.map(sp => (
+                  <div key={sp.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: sp.dotColor, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: sp.locked ? '#404945' : '#c0c9c3', flex: 1 }}>{sp.name.replace(' 🔒', '')}</span>
+                    <div style={{ width: 60, height: 4, background: 'rgba(255,255,255,.08)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${sp.pct}%`, background: sp.locked ? '#404945' : sp.dotColor }} />
+                    </div>
+                    <span style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 11, color: sp.locked ? '#404945' : '#9ed1bd', width: 32, textAlign: 'right' }}>{sp.pct}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RESEARCH (Build tab) */}
+        {activeNavTab === 'build' && (
+          <div style={{ height: '100%', overflowY: 'auto', padding: '16px 16px 80px' }} className="dark-scroll animate-fade-in">
+            <p style={{ fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 700, fontSize: 16, color: '#dde4e7', marginBottom: 4 }}>Forschungsbaum</p>
+            <p style={{ fontSize: 12, color: '#8a938e', marginBottom: 16 }}>Forschungspunkte: <span style={{ color: '#9ed1bd', fontFamily: '"JetBrains Mono",monospace', fontWeight: 600 }}>{stats.researchPoints} 🧪</span></p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {researchNodes.map(node => {
+                const prereqsMet = node.requirements.every(r => researchNodes.find(n => n.id === r)?.unlocked);
+                const canUnlock = !node.unlocked && prereqsMet && stats.researchPoints >= node.cost;
+                return (
+                  <div key={node.id} style={{ padding: '12px 14px', borderRadius: 12, background: node.unlocked ? 'rgba(27,77,62,.35)' : 'rgba(47,54,57,.5)', border: `1px solid ${node.unlocked ? 'rgba(158,209,189,.3)' : 'rgba(255,255,255,.06)'}`, opacity: (!node.unlocked && !prereqsMet) ? 0.42 : 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: node.unlocked ? '#9ed1bd' : '#dde4e7' }}>{node.name}</span>
+                      {node.unlocked
+                        ? <span className="tag-pill" style={{ color: '#76C043', borderColor: 'rgba(118,192,67,.3)', background: 'rgba(118,192,67,.1)', flexShrink: 0 }}>✓</span>
+                        : <button onClick={() => handleUnlockResearch(node.id)} disabled={!canUnlock} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600, background: canUnlock ? 'rgba(158,209,189,.18)' : 'rgba(255,255,255,.04)', border: `1px solid ${canUnlock ? 'rgba(158,209,189,.4)' : 'rgba(255,255,255,.08)'}`, color: canUnlock ? '#9ed1bd' : '#404945', fontFamily: '"JetBrains Mono",monospace', flexShrink: 0, cursor: canUnlock ? 'pointer' : 'default' }}>{node.cost} 🧪</button>
+                      }
+                    </div>
+                    <p style={{ fontSize: 12, color: '#8a938e', marginTop: 5, lineHeight: 1.4 }}>{node.effect}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Left Map Tool Sidebar */}
+        {activeNavTab === 'simulation' && (
+          <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', gap: 8, zIndex: 20 }}>
+            {(['none','wrrl','ffh','flood'] as const).map((ov, i) => {
+              const icons = ['layers','water_drop','park','flood'] as const;
               return (
-                <button
-                  key={card.id}
-                  onClick={() => handlePlayCard(card.id)}
-                  aria-pressed={isSelected}
-                  aria-label={`${card.name}, Staerke ${card.strength}`}
-                  className={`act-slot flex-1 md:flex-initial min-h-20 text-center flex flex-col items-center justify-between gap-1.5 select-none min-w-[76px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-eco-primary ${isSelected ? 'active' : ''}`}
-                >
-                  {/* Glyph-Ring mit Karten-Buchstabe */}
-                  <span className="glyph-ring mt-0.5" style={{ width: 28, height: 28, fontSize: 13, color: 'var(--color-eco-primary)' }}>
-                    {card.name.charAt(0)}
-                  </span>
-                  <div className="flex flex-col items-center gap-0.5">
-                    <span style={{ font: '500 17px/1 "Playfair Display", serif', color: '#22282A', letterSpacing: '-0.01em' }}>
-                      {card.strength}
-                    </span>
-                    <span style={{ font: '600 7px/1 "Inter", sans-serif', letterSpacing: '.1em', textTransform: 'uppercase', color: '#8A8F95' }}>
-                      Stärke
-                    </span>
-                  </div>
-
-                  {/* CD Pips — dünne Balken */}
-                  <div className="act-slot pips w-full px-1">
-                    {[1, 2, 3, 4, 5].map(idx => (
-                      <i key={idx} className={idx <= card.strength ? 'on' : ''} style={idx <= card.strength ? { background: 'var(--color-eco-primary)' } : {}} />
-                    ))}
-                  </div>
-
-                  <span style={{ font: '500 9px/1 "Inter", sans-serif', letterSpacing: '.04em', textTransform: 'uppercase', color: '#4E545A', maxWidth: 58, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {card.name.split(' ')[0]}
-                  </span>
+                <button key={ov} className={`map-tool-btn${activeOverlay === ov ? ' active' : ''}`} onClick={() => setActiveOverlay(activeOverlay === ov ? 'none' : ov)}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 20 }}>{icons[i]}</span>
                 </button>
               );
             })}
           </div>
+        )}
 
-          {/* Quick Info & Static Map Legends at Left Hand Bottom */}
-          <div className="hidden md:flex flex-col items-center gap-1 opacity-70">
-            <button 
-              onClick={() => {
-                setShowTutorial(true);
-                setTutorialStep(0);
-              }}
-              className="min-h-11 min-w-11 p-2 rounded-full text-ink-3 hover:text-ink-0 active:bg-parch-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-eco-primary"
-              title="Anleitung"
-              aria-label="Anleitung oeffnen"
-            >
-              <HelpCircle className="w-5 h-5" />
-            </button>
-            <span className="text-[9px] font-serif text-ink-3">Guide</span>
-          </div>
-        </aside>
-
-        {/* CENTER COLUMN: The Dynamic Interactive Sandbox Hex Map */}
-        {/* Map — Kartentisch: schwerer Rahmen, warme Tischfarbe */}
-        <section
-          className="relative flex-1 min-h-[320px] overflow-hidden flex flex-col"
-          style={{ borderRadius: 6, border: '3px solid #22282A', boxShadow: 'inset 0 0 0 1px rgba(250,247,240,.25), 0 14px 30px -12px rgba(34,40,42,.4)' }}
-        >
-          {/* Map Filters Overlay */}
-          <div className="absolute top-3 left-3 right-3 sm:right-auto z-40 flex items-center gap-1.5 p-1.5 overflow-x-auto tablet-scroll" style={{ background: 'rgba(34,40,42,.88)', border: '1px solid rgba(250,247,240,.12)', borderRadius: 9, backdropFilter: 'blur(6px)' }}>
-            <span style={{ font: '600 8px/1 "Inter", sans-serif', letterSpacing: '.16em', textTransform: 'uppercase', color: 'rgba(250,247,240,.45)', marginRight: 4, whiteSpace: 'nowrap' }}>
-              Atlas-Filter
-            </span>
-            {(
-              [
-                { id: 'none', label: 'Kein' },
-                { id: 'wrrl', label: 'WRRL-Güte' },
-                { id: 'ffh', label: 'Biotope (FFH)' },
-                { id: 'flood', label: 'Flutrisiko' }
-              ] as const
-            ).map(overlay => (
-              <button
-                key={overlay.id}
-                onClick={() => setActiveOverlay(overlay.id)}
-                aria-pressed={activeOverlay === overlay.id}
-                className="shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-eco-primary"
-                style={{
-                  font: '600 9px/1 "Inter", sans-serif',
-                  letterSpacing: '.04em',
-                  padding: '5px 10px',
-                  borderRadius: 999,
-                  border: activeOverlay === overlay.id ? '1px solid rgba(250,247,240,.5)' : '1px solid rgba(250,247,240,.18)',
-                  background: activeOverlay === overlay.id ? '#FAF7F0' : 'rgba(250,247,240,.08)',
-                  color: activeOverlay === overlay.id ? '#22282A' : 'rgba(250,247,240,.65)',
-                  minHeight: 30
-                }}
-              >
-                {overlay.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="absolute left-3 bottom-3 z-40 max-w-[calc(100%-1.5rem)] bg-parch-0/95 border border-parch-4/60 rounded-lg backdrop-blur-sm px-3 py-2" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
-            <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-ink-2">
-              <span className="font-serif text-xs font-bold text-ink-1">Legende</span>
-              <span className="inline-flex items-center gap-1"><i className="w-3 h-3 rounded-sm bg-[#3a82be]" /> Wasser</span>
-              <span className="inline-flex items-center gap-1"><i className="w-3 h-3 rounded-sm bg-[#73cf45]" /> Wiese</span>
-              <span className="inline-flex items-center gap-1"><i className="w-3 h-3 rounded-sm bg-[#235c1d]" /> Auwald</span>
-              <span className="inline-flex items-center gap-1"><i className="w-3 h-3 rounded-sm bg-[#e07638]" /> Siedlung</span>
-            </div>
-          </div>
-
-          <div className="flex-1 w-full h-full relative" id="isometric-canvas-wrapper">
-            {grid.length > 0 && (
-              <IsometricMap
-                grid={grid}
-                selectedTile={selectedCoord}
-                selectedBuilding={selectedBuilding}
-                onSelectTile={(gx, gy) => {
-                  setSelectedCoord({ gx, gy });
-                  setSelectedCardId('act_build');
-                  if (selectedBuilding) {
-                    handleBuildDirectly(gx, gy, selectedBuilding);
-                  }
-                }}
-                activeOverlay={activeOverlay}
-              />
-            )}
-          </div>
-        </section>
-
-        {/* RIGHT COLUMN: Ledger Details Console Sidebar */}
-        <aside className="rur-panel rounded-xl md:rounded-2xl p-3 md:p-4 flex flex-col gap-3.5 overflow-y-auto tablet-scroll shrink-0 w-full md:w-[360px] max-h-[34dvh] md:max-h-none">
-          
-          {/* Cell Inspection Detail card */}
-          {selectedCoord && selectedTile && (
-            <div className="bg-parch-2 border border-parch-4 rounded-lg flex flex-col transition-all duration-300" style={{ boxShadow: '0 1px 2px rgba(34,40,42,.06)' }}>
-              {/* Clickable Header */}
-              <button 
-                onClick={() => setIsInspectionOpen(!isInspectionOpen)}
-                className="flex items-center justify-between w-full p-3 hover:bg-parch-2/50 text-left transition-colors font-serif font-bold text-sm text-ink-0 uppercase tracking-wider rounded-t-lg"
-              >
-                <div className="flex items-center gap-1.5 select-none text-ink-1">
-                  <MapPin className="w-4 h-4" aria-hidden="true" />
-                  <span>📍 Kachel-Inspektion</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-[9px] text-ink-3">
-                    X={selectedCoord.gx} Y={selectedCoord.gy}
-                  </span>
-                  <svg 
-                    className={`w-4 h-4 text-ink-3 transition-transform duration-300 ${isInspectionOpen ? 'rotate-180' : 'rotate-0'}`} 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </button>
-
-              {/* Collapsible Content */}
-              <div className={`overflow-hidden transition-all duration-300 ${isInspectionOpen ? 'max-h-[500px] p-3 pt-0 border-t border-ink-1/10' : 'max-h-0'}`}>
-                <div className="flex flex-col gap-2.5 mt-2.5">
-                  <div className="flex items-start gap-2.5">
-                    <span className="text-3xl bg-parch-2 p-1.5 rounded border border-ink-1/10 shadow-sm leading-none flex-shrink-0">
-                      {selectedCoord.gx === 3 && selectedCoord.gy === 8 ? '🏭' :
-                       grid[selectedCoord.gy][selectedCoord.gx].terrain === 'Water' ? '🌊' :
-                       grid[selectedCoord.gy][selectedCoord.gx].terrain === 'Auwald' ? '🌲' :
-                       grid[selectedCoord.gy][selectedCoord.gx].terrain === 'Acker' ? '🌾' : '🌾'}
-                    </span>
-                    <div className="flex flex-col">
-                      <div className="font-serif font-bold text-sm text-ink-0">
-                        {selectedTile.cityName || 'Freies Ufer / Offenland'}
-                      </div>
-                      <span className="text-xs text-ink-2 font-serif italic mt-0.5">
-                        {selectedCoord.gy < 5 ? 'Jülicher Tiefland' : selectedCoord.gy < 11 ? 'Düren Mitte' : 'Eifel Oberlauf'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Local Tile metrics */}
-                  <div className="grid grid-cols-2 gap-2 mt-1">
-                    <div className="bg-parch-1/70 border border-ink-1/10 rounded p-1.5">
-                      <span className="font-mono text-[8px] text-ink-3 uppercase block leading-none">Güte (WRRL)</span>
-                      <span className="font-serif text-md font-bold mt-1 text-ink-1 block">
-                        Klasse {selectedTile.wrrl_quality.toFixed(1)}
-                      </span>
-                    </div>
-                    <div className="bg-parch-1/70 border border-ink-1/10 rounded p-1.5">
-                      <span className="font-mono text-[8px] text-ink-3 uppercase block leading-none">Biodiversität</span>
-                      <span className="font-serif text-md font-bold mt-1 text-ink-1 block">
-                        {selectedTile.ffh_value}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Secondary data */}
-                  <div className="text-xs text-ink-1 flex flex-col gap-1 border-t border-ink-1/10 pt-2 font-mono">
-                    <div>Fahrflutrisiko: <span className="font-bold">{selectedTile.flood_risk}</span></div>
-                    {selectedTile.buildingId && (
-                      <div className="text-eco-primary font-serif font-bold text-[11px] mt-0.5 bg-eco-primary/5 p-1 rounded border border-eco-primary/15">
-                        Aktive Belegung: {BUILDINGS_CATALOG.find(b => b.id === selectedTile.buildingId)?.name || 'Papierfabrik'}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Action builder trigger button */}
-                  {selectedBuilding && (
-                    <div className="mt-1 bg-eco-primary/10 border border-eco-primary/30 rounded-lg p-2 flex flex-col gap-1.5">
-                      <div className="text-xs text-eco-primary font-bold">
-                        Baue: {selectedBuilding.name}
-                      </div>
-                      <button
-                        onClick={handleBuildMeasureOnSelected}
-                        className="w-full py-1.5 text-center font-serif text-xs font-bold text-white bg-eco-primary rounded-md shadow hover:brightness-105 active:brightness-95"
-                      >
-                        Maßnahme anlegen (€)
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Schoellershammer Control System */}
-          <SchoellershammerConsole
-            currentMode={stats.paperFactoryMode}
-            onModeChange={handleFactoryModeChange}
-            isRenaturierungUnlocked={isLachsRenaturierungUnlocked || false}
-          />
-
-          {/* Species Tracker */}
-          <SpeciesTracker species={speciesList} />
-
-          {/* Research Progress node Tree in Sidebar */}
-          <ResearchPanel
-            nodes={researchNodes}
-            researchPoints={stats.researchPoints}
-            onUnlockNode={handleUnlockResearch}
-          />
-
-          {/* Active Quests box ledger */}
-          <div className="bg-parch-1 border border-ink-1/20 rounded-lg shadow-md flex flex-col transition-all duration-300">
-            {/* Clickable Header for Collapse/Expand */}
-            <button 
-              onClick={() => setIsQuestsOpen(!isQuestsOpen)}
-              className="flex items-center justify-between w-full p-3 hover:bg-parch-2/50 text-left transition-colors font-serif font-bold text-sm text-ink-0 uppercase tracking-wider rounded-t-lg"
-            >
-              <div className="flex items-center gap-1.5 select-none">
-                <Crown className="w-4 h-4" aria-hidden="true" />
-                <span>👑 Behörden-Aufträge</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[9px] text-ink-3 bg-parch-3/60 px-1.5 py-0.5 rounded font-bold">
-                  {quests.filter(q => q.status !== 'completed').length} Aktiv
-                </span>
-                <svg 
-                  className={`w-4 h-4 text-ink-3 transition-transform duration-300 ${isQuestsOpen ? 'rotate-180' : 'rotate-0'}`} 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </button>
-
-            {/* Collapsible Content */}
-            <div className={`overflow-hidden transition-all duration-300 ${isQuestsOpen ? 'max-h-[500px] p-3 pt-0 border-t border-ink-1/10' : 'max-h-0'}`}>
-              <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto tablet-scroll pr-1 mt-2.5">
-                {quests.map(q => (
-                  <div
-                    key={q.id}
-                    className={`p-2.5 rounded-lg border text-left flex flex-col transition-all ${
-                      q.status === 'completed'
-                        ? 'bg-eco-primary/5 border-eco-primary/20 text-eco-primary/60 opacity-70'
-                        : 'bg-parch-2 border-parch-4/40 text-ink-0'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-1.5">
-                      <span className="font-serif font-bold text-xs">
-                        {q.title}
-                      </span>
-                      {q.status === 'completed' ? (
-                        <span className="text-[9px] font-mono font-bold bg-eco-primary/20 text-eco-primary rounded px-1 uppercase shrink-0">ERLEDIGT ✓</span>
-                      ) : (
-                        <span className="text-[9px] font-mono font-bold bg-fau-primary/15 text-fau-primary rounded px-1 uppercase shrink-0">AKTIV</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-ink-2 mt-1 leading-normal">
-                      {q.description}
-                    </p>
-                    <span className="text-[10px] font-mono text-ink-3 mt-1 block italic">{q.rewardText}</span>
-                  </div>
+        {/* Bottom Build Sheet */}
+        {activeNavTab === 'simulation' && (
+          <div
+            className="bottom-sheet"
+            style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 30,
+              padding: '14px 16px 16px',
+              maxHeight: sheetExpanded ? '52vh' : 'auto',
+              transition: 'max-height .3s cubic-bezier(.3,.7,.4,1)',
+              overflowY: sheetExpanded ? 'auto' : 'hidden',
+            }}
+          >
+            {/* Sheet Header Row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ display: 'flex', gap: 20 }}>
+                {(['aktionen','bauen'] as const).map(t => (
+                  <button key={t} onClick={() => setBuildSheetTab(t)} style={{ background: 'none', border: 'none', paddingBottom: 6, borderBottom: buildSheetTab === t ? '2px solid #9ed1bd' : '2px solid transparent', color: buildSheetTab === t ? '#9ed1bd' : '#8a938e', fontFamily: '"JetBrains Mono",monospace', fontSize: 10, fontWeight: 500, letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer', transition: 'color .14s' }}>
+                    {t.toUpperCase()}
+                  </button>
                 ))}
               </div>
-            </div>
-          </div>
-
-        </aside>
-      </main>
-
-      {/* ── FOOTER: Baukatalog / measures ribbon & End Turn Button ── */}
-      <footer className="rur-panel rounded-xl md:rounded-2xl p-3 md:p-3.5 mx-3 md:mx-4 mb-3 md:mb-4 flex flex-col md:grid md:grid-cols-[1fr_240px] gap-3 md:gap-4 items-stretch justify-between z-20">
-        
-        {/* Horizontal scrollable measures catalog selection */}
-        <div className="flex items-center gap-3">
-          {selectedCardId === 'act_build' ? (
-            <div className="w-full">
-              <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-eco-primary/20 bg-eco-primary/5 px-3 py-2">
-                {buildFlowSteps.map((step, index) => (
-                  <div key={step.label} className="flex items-center gap-2">
-                    <span className={`flex h-6 w-6 items-center justify-center rounded-full border text-[11px] font-mono font-bold ${
-                      step.done
-                        ? 'bg-eco-primary text-white border-eco-primary'
-                        : step.active
-                          ? 'bg-parch-0 text-eco-primary border-eco-primary'
-                          : 'bg-parch-2 text-ink-3 border-ink-1/10'
-                    }`}>
-                      {index + 1}
-                    </span>
-                    <span className={`text-xs font-serif font-bold ${step.done || step.active ? 'text-ink-0' : 'text-ink-3'}`}>
-                      {step.label}
-                    </span>
-                    {index < buildFlowSteps.length - 1 && <ArrowRight className="w-3 h-3 text-ink-3" aria-hidden="true" />}
-                  </div>
-                ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 {selectedBuilding && (
-                  <span className="ml-auto text-xs font-mono text-eco-primary font-bold">
-                    Gewaehlt: {selectedBuilding.name}
+                  <span className="tag-pill" style={{ color: '#9ed1bd', borderColor: 'rgba(158,209,189,.3)', background: 'rgba(158,209,189,.08)', fontSize: 9 }}>
+                    {selectedBuilding.icon} {getEffectiveCost(selectedBuilding, activeBuildCard?.strength || 1, researchNodes)}€
                   </span>
                 )}
+                <button onClick={() => setSheetExpanded(!sheetExpanded)} style={{ background: 'none', border: 'none', color: '#8a938e', cursor: 'pointer', lineHeight: 1, padding: 4 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 22 }}>{sheetExpanded ? 'expand_more' : 'expand_less'}</span>
+                </button>
               </div>
-              <BuildCatalog
-                onSelectBuilding={b => setSelectedBuilding(b)}
-                selectedBuildingId={selectedBuilding?.id || null}
-                budget={stats.budget}
-                activeCardStrength={activeBuildCard?.strength || 1}
-                unlockedResearchIds={researchNodes.filter(n => n.unlocked).map(n => n.id)}
-              />
             </div>
-          ) : (
-            <div className="flex items-center justify-center p-4 bg-parch-3/30 border border-ink-1/10 rounded-xl w-full text-center py-5">
-              <p className="font-serif italic text-ink-2 text-sm">
-                <Lightbulb className="w-4 h-4 inline mr-1 text-fau-primary" aria-hidden="true" />
-                💡 Wähle die Aktionskarte <span className="font-bold text-ink-1">"Bauen & Errichten (🏗️)"</span> links aus, um den Baukatalog zu öffnen und Projekte an der Rur anzulegen.
-              </p>
-            </div>
-          )}
-        </div>
 
-        {/* Global Turn Controls */}
-        <div className="flex flex-col justify-between p-2.5 rounded-xl shrink-0" style={{ background: '#F2EDE0', border: '1px solid #E2DBC8' }}>
-          <div className="flex items-center justify-between gap-1 border-b border-dashed border-ink-1/10 pb-1.5 px-1.5">
-            <div className="flex flex-col text-left">
-              <span className="text-[9px] text-ink-3 font-mono leading-none font-bold">CO₂-FUẞABDRUCK</span>
-              <span className={`text-[11px] font-serif font-bold leading-none mt-1 ${getCO2Rating(stats.co2Footprint).style}`}>
-                {stats.co2Footprint}t ({getCO2Rating(stats.co2Footprint).text})
-              </span>
-            </div>
-            
-            <div className="flex flex-col text-right">
-              <span className="text-[9px] text-ink-3 font-mono leading-none font-bold">AKZEPTANZ</span>
-              <span className={`text-[11px] font-serif font-style font-semibold leading-none ${getAcceptanceLabel(stats.citizenAcceptance).style}`}>
-                {stats.citizenAcceptance}% ({getAcceptanceLabel(stats.citizenAcceptance).text})
-              </span>
-            </div>
+            {/* AKTIONEN tab */}
+            {buildSheetTab === 'aktionen' && (
+              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }} className="no-scrollbar">
+                {cards.map(card => (
+                  <div key={card.id} className={`build-card${selectedCardId === card.id ? ' selected' : ''}`} onClick={() => { handlePlayCard(card.id); setBuildSheetTab('bauen'); }}>
+                    <div style={{ width: 52, height: 52, borderRadius: 12, background: selectedCardId === card.id ? 'rgba(158,209,189,.15)' : 'rgba(255,255,255,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
+                      {card.emoji}
+                    </div>
+                    <span className="label-caps" style={{ color: '#c0c9c3', textAlign: 'center', fontSize: 9 }}>{card.type}</span>
+                    <div style={{ display: 'flex', gap: 2 }}>
+                      {[1,2,3,4,5].map(i => (
+                        <div key={i} style={{ width: 10, height: 3, borderRadius: 2, background: i <= card.strength ? '#9ed1bd' : 'rgba(255,255,255,.12)' }} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {/* End Turn card */}
+                <div className="build-card" onClick={handleEndTurn} style={{ borderColor: 'rgba(158,209,189,.25)', background: 'rgba(27,77,62,.35)' }}>
+                  <div style={{ width: 52, height: 52, borderRadius: 12, background: 'rgba(158,209,189,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 26, color: '#9ed1bd' }}>arrow_forward</span>
+                  </div>
+                  <span className="label-caps" style={{ color: '#9ed1bd', textAlign: 'center', fontSize: 9 }}>RUNDE</span>
+                  <span className="label-caps" style={{ color: '#9ed1bd', textAlign: 'center', fontSize: 9 }}>BEENDEN</span>
+                </div>
+              </div>
+            )}
+
+            {/* BAUEN tab */}
+            {buildSheetTab === 'bauen' && (
+              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }} className="no-scrollbar">
+                {BUILDINGS_CATALOG.map(b => {
+                  const resNode = b.researchRequired ? researchNodes.find(n => n.id === b.researchRequired) : null;
+                  const locked = resNode ? !resNode.unlocked : false;
+                  const cost = getEffectiveCost(b, activeBuildCard?.strength || 1, researchNodes);
+                  return (
+                    <div
+                      key={b.id}
+                      className={`build-card${selectedBuilding?.id === b.id ? ' selected' : ''}${locked ? ' locked' : ''}`}
+                      onClick={() => {
+                        if (locked) return;
+                        setSelectedBuilding(selectedBuilding?.id === b.id ? null : b);
+                        setSelectedCardId('act_build');
+                      }}
+                    >
+                      <div style={{ width: 52, height: 52, borderRadius: 12, background: b.category === 'water' ? 'rgba(78,179,211,.12)' : b.category === 'ecology' || b.category === 'fauna' ? 'rgba(118,192,67,.10)' : 'rgba(166,137,102,.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
+                        {b.icon}
+                      </div>
+                      <span className="label-caps" style={{ color: '#c0c9c3', textAlign: 'center', fontSize: 8, lineHeight: 1.3 }}>
+                        {b.name.slice(0, 14).toUpperCase()}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 10, color: '#9ed1bd' }}>payments</span>
+                        <span className="label-caps" style={{ color: '#9ed1bd', fontSize: 9 }}>{cost}€</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
+        )}
+      </main>
 
-          <div className="flex gap-2.5 mt-2">
-            {/* Undo Action */}
-            <button
-              onClick={handleUndo}
-              disabled={undoHistory.length === 0}
-              className={`p-2.5 rounded-lg border flex items-center justify-center font-serif text-xs font-bold shrink-0 transition-all ${
-                undoHistory.length > 0
-                  ? 'ru-btn secondary'
-                  : 'ru-btn ghost opacity-40 cursor-not-allowed'
-              }`}
-              title="Undoletzter Schritt"
-            >
-              <Undo className="w-5 h-5" />
-            </button>
+      {/* ══ BOTTOM NAVIGATION ══ */}
+      <nav className="bottom-nav" style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '6px 4px 10px', zIndex: 40 }}>
+        {([
+          { id: 'simulation', icon: 'map',          label: 'Karte' },
+          { id: 'stats',      icon: 'analytics',    label: 'Stats' },
+          { id: 'history',    icon: 'history_edu',  label: 'Missionen' },
+          { id: 'build',      icon: 'science',      label: 'Forschung' },
+        ] as const).map(tab => (
+          <button key={tab.id} className={`nav-item${activeNavTab === tab.id ? ' active' : ''}`} onClick={() => setActiveNavTab(tab.id)} style={{ border: 'none', cursor: 'pointer' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 22 }}>{tab.icon}</span>
+            <span className="label-caps" style={{ fontSize: 9 }}>{tab.label}</span>
+          </button>
+        ))}
+      </nav>
 
-            {/* End Turn — CD primary button */}
-            <button
-              onClick={handleEndTurn}
-              className="ru-btn primary flex-1 justify-center"
-              style={{ fontSize: 12, letterSpacing: '.08em' }}
-            >
-              Nächste Runde <span style={{ marginLeft: 2 }}>›</span>
-            </button>
-          </div>
-        </div>
+      {/* ══ MODALS ══ */}
 
-      </footer>
-
-      {/* ── MODAL: CLIMATE EVENTS ── */}
       {activeEvent && (
-        <EventModal
-          event={activeEvent}
-          budget={stats.budget}
-          researchPoints={stats.researchPoints}
-          onChoice={handleResolveEvent}
-        />
+        <EventModal event={activeEvent} onChoice={handleResolveEvent} />
       )}
 
-      {/* ── MODAL: TABLET WELCOME TUTORIAL ── */}
       {showTutorial && (
-        <div className="fixed inset-0 bg-ink-0/70 backdrop-blur-sm z-[99999] flex items-center justify-center p-4">
-          <div
-          className="bg-parch-0 border-2 border-parch-4 rounded-xl p-5 max-w-md w-full relative sm:p-6 paper-card"
-          style={{ boxShadow: '0 0 0 1px rgba(14,201,124,0.2), 0 24px 60px rgba(0,0,0,0.7), 0 0 40px rgba(14,201,124,0.08)' }}
-        >
-            {/* Corners */}
-            <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-ink-3" />
-            <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-ink-3" />
-            
-            <h2 className="font-serif font-bold text-lg text-ink-0 text-center tracking-medium mt-1">
-              {TUTORIAL_STEPS[tutorialStep].title}
-            </h2>
-
-            <p className="text-sm text-ink-1 italic leading-relaxed text-center font-sans mt-4">
-              {TUTORIAL_STEPS[tutorialStep].text}
-            </p>
-
-            <div className="flex items-center justify-between mt-6">
-              <span className="font-mono text-xs text-ink-3">
-                {tutorialStep + 1} von {TUTORIAL_STEPS.length}
-              </span>
-              
-              <button
-                onClick={() => {
-                  if (tutorialStep < TUTORIAL_STEPS.length - 1) {
-                    setTutorialStep(prev => prev + 1);
-                  } else {
-                    setShowTutorial(false);
-                  }
-                }}
-                className="px-4 py-2 rounded bg-eco-primary text-white font-serif font-bold text-xs tracking-wide shadow-md"
-              >
-                {tutorialStep === TUTORIAL_STEPS.length - 1 ? 'Starten' : 'Weiter →'}
-              </button>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(13,20,23,.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#1a2124', border: '1px solid rgba(255,255,255,.14)', borderRadius: 20, padding: 24, maxWidth: 380, width: '100%' }} className="animate-slide-up">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <span className="material-symbols-outlined" style={{ color: '#9ed1bd', fontSize: 22 }}>eco</span>
+              <span style={{ fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 800, fontSize: 15, color: '#9ed1bd' }}>RurNova</span>
+              <span className="label-caps" style={{ color: '#8a938e', marginLeft: 'auto', fontSize: 9 }}>{tutorialStep + 1}/{TUTORIAL_STEPS.length}</span>
             </div>
+            <h2 style={{ fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 700, fontSize: 18, color: '#dde4e7', marginBottom: 10 }}>{TUTORIAL_STEPS[tutorialStep].title}</h2>
+            <p style={{ fontSize: 14, color: '#c0c9c3', lineHeight: 1.6 }}>{TUTORIAL_STEPS[tutorialStep].text}</p>
+            <div style={{ display: 'flex', gap: 4, marginTop: 16 }}>
+              {TUTORIAL_STEPS.map((_, i) => (
+                <div key={i} style={{ height: 3, flex: 1, borderRadius: 2, background: i <= tutorialStep ? '#9ed1bd' : 'rgba(255,255,255,.12)' }} />
+              ))}
+            </div>
+            <button
+              onClick={() => tutorialStep < TUTORIAL_STEPS.length - 1 ? setTutorialStep(p => p + 1) : setShowTutorial(false)}
+              style={{ width: '100%', marginTop: 16, padding: '12px', borderRadius: 12, background: 'rgba(158,209,189,.18)', border: '1px solid rgba(158,209,189,.4)', color: '#9ed1bd', fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+            >
+              {tutorialStep === TUTORIAL_STEPS.length - 1 ? '🌿 Simulation starten' : 'Weiter →'}
+            </button>
           </div>
         </div>
       )}
 
-      {/* ── MODAL: ACTION GAME FEEDBACK ── */}
       <GameFeedbackOverlay
         notification={pendingFeedback}
         onClose={() => setPendingFeedback(null)}
@@ -1540,7 +1287,6 @@ export default function App() {
         onCancel={handleCancelStagedAction}
       />
 
-      {/* ── GAME END SCREEN (2040 Endwertung) ── */}
       {(stats.gamePhase === 'end_win' || stats.gamePhase === 'end_collapse') && (
         <GameEndScreen
           won={stats.gamePhase === 'end_win'}
@@ -1548,16 +1294,7 @@ export default function App() {
           speciesList={speciesList}
           onRestart={() => {
             initGrid();
-            setStats({
-              round: 1, year: 2026, season: 0,
-              budget: 25, researchPoints: 3, naturePoints: 0,
-              globalWrrl: 42, globalFfh: 61, continuity: 12,
-              climateRisk: 35, citizenAcceptance: 73, biosecurity: 62,
-              renewableEnergy: 8, co2Footprint: 142,
-              paperFactoryMode: 'Vollbetrieb',
-              factoryCooldown: 0,
-              gamePhase: 'playing',
-            });
+            setStats({ round: 1, year: 2026, season: 0, budget: 25, researchPoints: 3, naturePoints: 0, globalWrrl: 42, globalFfh: 61, continuity: 12, climateRisk: 35, citizenAcceptance: 73, biosecurity: 62, renewableEnergy: 8, co2Footprint: 142, paperFactoryMode: 'Vollbetrieb', factoryCooldown: 0, gamePhase: 'playing' });
             setCards(INITIAL_ACTION_CARDS);
             setResearchNodes(RESEARCH_TECH_TREE);
             setSpeciesList(BIOTOP_SPECIES);
