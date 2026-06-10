@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -16,26 +16,22 @@ import {
   ClimateEvent,
   ClimateEventChoice
 } from './types';
-import {
-  BUILDINGS_CATALOG,
-  INITIAL_ACTION_CARDS,
-  RESEARCH_TECH_TREE,
-  BIOTOP_SPECIES,
-  CLIMATE_EVENTS_DATA,
+import { 
+  BUILDINGS_CATALOG, 
+  INITIAL_ACTION_CARDS, 
+  RESEARCH_TECH_TREE, 
+  BIOTOP_SPECIES, 
+  CLIMATE_EVENTS_DATA, 
   STAKEHOLDER_QUESTS_DATA,
-  TUTORIAL_STEPS,
-  FACTORY_MODES,
-  getEffectiveCost,
-  rotateActionCard
+  TUTORIAL_STEPS 
 } from './gameData';
-import { GameEndScreen } from './components/GameEndScreen';
 import { IsometricMap } from './components/IsometricMap';
 import { ResearchPanel } from './components/ResearchPanel';
 import { SpeciesTracker } from './components/SpeciesTracker';
 import { SchoellershammerConsole } from './components/SchoellershammerConsole';
 import { BuildCatalog } from './components/BuildCatalog';
 import { EventModal } from './components/EventModal';
-import { Undo, HelpCircle, BarChart3, MapPin, Crown, Lightbulb, ArrowRight } from 'lucide-react';
+import { Undo, RefreshCw, HelpCircle, BookOpen, MapPin, Factory, Fish, FlaskConical, Scroll, X } from 'lucide-react';
 import { GameFeedbackOverlay, GameNotification, GameNotificationDetail } from './components/GameFeedbackOverlay';
 
 const COLS = 16;
@@ -43,13 +39,79 @@ const ROWS = 16;
 
 const SEASONS = ['FRÜHJAHR', 'SOMMER', 'HERBST', 'WINTER'];
 
+const CARD_DETAILS: Record<string, {
+  title: string;
+  subtitle: string;
+  effect: string;
+  tip: string;
+  strengthLabel: string;
+}> = {
+  act_funding: {
+    title: "Mittel beantragen",
+    subtitle: "Zuschuss",
+    effect: "Fördermittel für Hochwasserschutz & Renaturierung einfordern.",
+    tip: "Hohe Stärke vervielfacht das erhaltene Budget.",
+    strengthLabel: "Zuschuss"
+  },
+  act_hydrology: {
+    title: "Wasser leiten",
+    subtitle: "Hydrologie",
+    effect: "Ermöglicht das Anlegen von Flussrenaturierungen & Poldern.",
+    tip: "Nötig für Renaturierungsbauten & Altarme.",
+    strengthLabel: "Reichweite"
+  },
+  act_plant: {
+    title: "Ufer aufwerten",
+    subtitle: "Vegetation",
+    effect: "Initiiert das Bepflanzen von Auwäldern & Uferwiesen.",
+    tip: "Uferbepflanzung bindet CO₂ & schafft Biotope.",
+    strengthLabel: "Auswirkung"
+  },
+  act_research: {
+    title: "Gewässer-Forschung",
+    subtitle: "Analyse",
+    effect: "Sammelt ökologische Forschungsdaten durch Gewässeranlayse.",
+    tip: "Wird zur Freischaltung neuer Öko-Techs benötigt.",
+    strengthLabel: "Ertrag"
+  },
+  act_build: {
+    title: "Errichten",
+    subtitle: "Strukturen",
+    effect: "Baut Spezialbauten (Fischtreppen, Klärwerke) aus dem Katalog.",
+    tip: "Höhere Stärke senkt Baukosten um bis zu 2 €!",
+    strengthLabel: "Budgetrabatt"
+  }
+};
+
+const getCardStrengthEffectResult = (cardId: string, strength: number) => {
+  if (cardId === 'act_funding') {
+    const reward = Math.round(4 + strength * 2.5);
+    return `+${reward} € Budget`;
+  }
+  if (cardId === 'act_research') {
+    const reward = Math.ceil(strength / 1.5);
+    return `+${reward} 🧪 Forschung`;
+  }
+  if (cardId === 'act_build') {
+    const discount = strength === 3 || strength === 4 ? 1 : strength === 5 ? 2 : 0;
+    return discount > 0 ? `-${discount} € Rabatt` : 'Normalpreis';
+  }
+  if (cardId === 'act_hydrology') {
+    return `Einflussbereich ${strength} Felder`;
+  }
+  if (cardId === 'act_plant') {
+    return 'Optimales Wachstum';
+  }
+  return '';
+};
+
 export default function App() {
   // ── States ──
   const [grid, setGrid] = useState<TileData[][]>([]);
   const [stats, setStats] = useState<GameStats>({
     round: 1,
-    year: 2026,
     season: 0,
+    year: 2026,
     budget: 25,
     researchPoints: 3,
     naturePoints: 0,
@@ -62,13 +124,35 @@ export default function App() {
     renewableEnergy: 8,
     co2Footprint: 142,
     paperFactoryMode: 'Vollbetrieb',
-    factoryCooldown: 0,
-    gamePhase: 'playing',
   });
 
   const [cards, setCards] = useState<ActionCard[]>(INITIAL_ACTION_CARDS);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   const [selectedCoord, setSelectedCoord] = useState<{ gx: number; gy: number } | null>({ gx: 10, gy: 8 });
+  const [hasHoverSupport, setHasHoverSupport] = useState(true);
+  const [showLeftSidebar, setShowLeftSidebar] = useState(true);
+  const [showRightSidebar, setShowRightSidebar] = useState(true);
+
+  useEffect(() => {
+    const hoverQuery = window.matchMedia('(hover: hover)');
+    setHasHoverSupport(hoverQuery.matches);
+    const listener = (e: MediaQueryListEvent) => setHasHoverSupport(e.matches);
+    
+    if (hoverQuery.addEventListener) {
+      hoverQuery.addEventListener('change', listener);
+    } else {
+      hoverQuery.addListener?.(listener);
+    }
+
+    return () => {
+      if (hoverQuery.removeEventListener) {
+        hoverQuery.removeEventListener('change', listener);
+      } else {
+        hoverQuery.removeListener?.(listener);
+      }
+    };
+  }, []);
   
   const [researchNodes, setResearchNodes] = useState<ResearchNode[]>(RESEARCH_TECH_TREE);
   const [speciesList, setSpeciesList] = useState<Species[]>(BIOTOP_SPECIES);
@@ -90,6 +174,7 @@ export default function App() {
   // Modals / Overlays
   const [activeEvent, setActiveEvent] = useState<ClimateEvent | null>(null);
   const [showTutorial, setShowTutorial] = useState(true);
+  const [showTipSystem, setShowTipSystem] = useState(true);
   const [pendingFeedback, setPendingFeedback] = useState<GameNotification | null>(null);
   const [stagedAction, setStagedAction] = useState<{
     type: 'play_card' | 'build_direct';
@@ -100,6 +185,7 @@ export default function App() {
   const [generalRulesOpen, setGeneralRulesOpen] = useState(false);
   const [isInspectionOpen, setIsInspectionOpen] = useState(true);
   const [isQuestsOpen, setIsQuestsOpen] = useState(true);
+  const [activeRightMenu, setActiveRightMenu] = useState<'inspection' | 'factory' | 'species' | 'research' | 'quests' | null>('inspection');
   const [isHeaderExpanded, setIsHeaderExpanded] = useState(false);
 
   // ── River mapping ──
@@ -443,9 +529,9 @@ export default function App() {
     const cell = grid[gy]?.[gx];
     if (!cell) return false;
 
-    // Terrain eligibility check via allowedTerrain whitelist
-    if (building.allowedTerrain && !building.allowedTerrain.includes(cell.terrain)) {
-      alert(`"${building.name}" kann nicht auf ${cell.terrain}-Terrain platziert werden!\nErlaubt: ${building.allowedTerrain.join(', ')}`);
+    // Eligibility check
+    if (cell.terrain === 'Water' && building.category !== 'water' && building.category !== 'ecology' && building.category !== 'fauna') {
+      alert('Maßnahme kann nicht direkt im Tiefenwasser platziert werden!');
       return false;
     }
 
@@ -454,10 +540,11 @@ export default function App() {
       return false;
     }
 
-    // Deduct cost taking strength discount + research discounts into account
+    // Deduct cost taking strength discount of build card into account
     const buildCard = cards.find(c => c.id === 'act_build');
     const strength = buildCard?.strength || 1;
-    const finalCost = getEffectiveCost(building, strength, researchNodes);
+    const discount = strength === 3 || strength === 4 ? 1 : strength === 5 ? 2 : 0;
+    const finalCost = Math.max(1, building.cost - discount);
 
     if (stats.budget < finalCost) {
       alert('Budget ungenügend!');
@@ -541,8 +628,28 @@ export default function App() {
         }));
       }
 
-      // Card sliding sequence (Arche Nova rule via rotateActionCard helper)
-      const updatedCards = rotateActionCard(cards, cardId);
+      // Card sliding sequence (Arche Nova rule: played card falls to position 0/strength 1, lesser position cards shift up)
+      const oldPosition = card.position;
+      const updatedCards = cards.map(c => {
+        if (c.id === cardId) {
+          return {
+            ...c,
+            position: 0,
+            strength: 1
+          };
+        }
+        if (c.position < oldPosition) {
+          const newPos = c.position + 1;
+          return {
+            ...c,
+            position: newPos,
+            strength: newPos + 1
+          };
+        }
+        return c;
+      });
+
+      updatedCards.sort((a, b) => a.position - b.position);
       setCards(updatedCards);
       setSelectedCardId(cardId);
       setSelectedBuilding(null);
@@ -574,10 +681,11 @@ export default function App() {
       const cell = grid[gy]?.[gx];
       if (!cell) return;
 
-      // Deduct budget taking strength + research discounts into account
+      // Deduct budget taking discount into account
       const buildCard = cards.find(c => c.id === 'act_build');
       const strength = buildCard?.strength || 1;
-      const finalCost = getEffectiveCost(building, strength, researchNodes);
+      const discount = strength === 3 || strength === 4 ? 1 : strength === 5 ? 2 : 0;
+      const finalCost = Math.max(1, building.cost - discount);
 
       // Apply build to grid
       const updatedGrid = JSON.parse(JSON.stringify(grid)) as TileData[][];
@@ -612,9 +720,30 @@ export default function App() {
         budget: prev.budget - finalCost + (applyLogisticsCashback ? 1 : 0),
       }));
 
-      // Slide sequence for BUILD card (Arche Nova rules via rotateActionCard helper)
+      // Slide sequence for BUILD card! Since building is playing the BUILD card, we should slide it! (Arche Nova rules)
       if (buildCard) {
-        setCards(rotateActionCard(cards, 'act_build'));
+        const oldPosition = buildCard.position;
+        const updatedCards = cards.map(c => {
+          if (c.id === 'act_build') {
+            return {
+              ...c,
+              position: 0,
+              strength: 1
+            };
+          }
+          if (c.position < oldPosition) {
+            const newPos = c.position + 1;
+            return {
+              ...c,
+              position: newPos,
+              strength: newPos + 1
+            };
+          }
+          return c;
+        });
+
+        updatedCards.sort((a, b) => a.position - b.position);
+        setCards(updatedCards);
       }
 
       const buildDetailsConfirmed: GameNotificationDetail[] = [
@@ -659,47 +788,50 @@ export default function App() {
 
   // ── Factory Mode Selection ──
   const handleFactoryModeChange = (mode: 'Vollbetrieb' | 'Umrüstung' | 'Stilllegung' | 'Renaturierung') => {
-    // Guard: cooldown active?
-    if (stats.factoryCooldown > 0) {
-      alert(`Umrüstung gesperrt – noch ${stats.factoryCooldown} Runde(n) Abkühlzeit.`);
-      return;
-    }
     recordUndo();
-
-    const modeDef = FACTORY_MODES[mode];
+    
+    // Changing modes causes immediate citizen feedback or budget shifts
+    let budgetCut = 0;
+    if (mode === 'Renaturierung') {
+      budgetCut = 4; // costs 4 € to demount
+    }
 
     setStats(prev => ({
       ...prev,
       paperFactoryMode: mode,
-      budget: Math.max(0, prev.budget - modeDef.switchCost),
-      citizenAcceptance: Math.min(100, Math.max(0, prev.citizenAcceptance + modeDef.acceptanceBonus)),
-      factoryCooldown: modeDef.cooldownRounds,
+      budget: Math.max(0, prev.budget - budgetCut),
+      citizenAcceptance: Math.min(100, Math.max(0, prev.citizenAcceptance + (mode === 'Stilllegung' ? -15 : mode === 'Vollbetrieb' ? 10 : 5)))
     }));
 
+    const modeDetailsInfo = {
+      Vollbetrieb: { desc: '+15 €/Runde, +10% Akzeptanz, −15% WRRL im Fluss', flavor: 'Die Papierindustrie läuft unter Volldampf für maximale Wirtschaftlichkeit.' },
+      Umrüstung: { desc: '+5 €/Runde, +1 🧪/Runde, keine Gewässerschäden mehr', flavor: 'Moderne Filteranlagen und ressourceneffiziente Kreisprozesse werden etabliert uns schonen die Rur.' },
+      Stilllegung: { desc: '0 €/Runde, −15% Akzeptanz (Arbeitsplatzverlust), WRRL neutral', flavor: 'Eine temporäre Produktionspause entlastet das lokale Gewässerbiotop.' },
+      Renaturierung: { desc: '−4 € Einmalkosten, +15% WRRL-Qualität, +25% Lachsansiedlung', flavor: 'Vollständiger Rückbau und Renaturierung der Industriebrache am Dürener Mittellauf.' }
+    };
+
     const detailsList: GameNotificationDetail[] = [];
-    if (modeDef.switchCost > 0) {
-      detailsList.push({ label: 'Einmalige Umrüstungskosten', value: `-${modeDef.switchCost} €`, changeType: 'negative' });
+    if (budgetCut > 0) {
+      detailsList.push({ label: 'Einmalige Rückbaukosten', value: `-${budgetCut} €`, changeType: 'negative' });
     }
-    detailsList.push({
-      label: 'Bürgerakzeptanz',
-      value: modeDef.acceptanceBonus >= 0 ? `+${modeDef.acceptanceBonus}%` : `${modeDef.acceptanceBonus}%`,
-      changeType: modeDef.acceptanceBonus >= 0 ? 'positive' : 'negative'
+    const accChange = mode === 'Stilllegung' ? -15 : mode === 'Vollbetrieb' ? 10 : 5;
+    detailsList.push({ 
+      label: 'Bürgerakzeptanz', 
+      value: accChange >= 0 ? `+${accChange}%` : `${accChange}%`, 
+      changeType: accChange >= 0 ? 'positive' : 'negative' 
     });
-    if (modeDef.cooldownRounds > 0) {
-      detailsList.push({ label: 'Abkühlzeit', value: `${modeDef.cooldownRounds} Runde(n)`, changeType: 'neutral' });
-    }
 
     setPendingFeedback({
       type: 'mode',
       title: `Werk Schoellershammer umgestellt!`,
-      subtitle: `Status: ${modeDef.label} ${modeDef.icon}`,
-      icon: modeDef.icon,
+      subtitle: `Status: ${mode}`,
+      icon: '🏭',
       badgeText: 'WERKSMANAGEMENT',
       details: [
         ...detailsList,
-        { label: 'Rundeneffekt', value: modeDef.description, changeType: 'neutral' }
+        { label: 'Rundeneffekt', value: modeDetailsInfo[mode].desc, changeType: 'neutral' }
       ],
-      flavorText: modeDef.flavor
+      flavorText: modeDetailsInfo[mode].flavor
     });
   };
 
@@ -763,9 +895,16 @@ export default function App() {
     const nextYear = nextSeason === 0 ? stats.year + 1 : stats.year;
     const nextRound = stats.round + 1;
 
-    // 1. Calculate turn earnings (using FACTORY_MODES data)
-    const currentModeDef = FACTORY_MODES[stats.paperFactoryMode];
-    let roundIncome = 10 + currentModeDef.roundIncome; // BASE income + factory contribution
+    // 1. Calculate turn earnings
+    let roundIncome = 10; // BASE income
+
+    if (stats.paperFactoryMode === 'Vollbetrieb') {
+      roundIncome += 15;
+    } else if (stats.paperFactoryMode === 'Umrüstung') {
+      roundIncome += 5;
+    } else if (stats.paperFactoryMode === 'Renaturierung') {
+      roundIncome -= 4; // restoration maintenance budget drain
+    }
 
     // Add extra tourism earnings based on built properties
     let countTourism = 0;
@@ -779,15 +918,17 @@ export default function App() {
     }));
     roundIncome += countTourism;
 
-    // 2. Local WRRL damage or repair based on factory mode (from FACTORY_MODES)
+    // 2. Local WRRL damage or repair based on factory mode
     const updatedGrid = JSON.parse(JSON.stringify(grid)) as TileData[][];
-
+    
     // Düren Mittellauf wrrl changes
-    if (currentModeDef.wrrlEffectPerTurn !== 0) {
-      for (let x = 0; x < COLS; x++) {
-        const cell = updatedGrid[8][x];
-        if (cell.terrain === 'Water') {
-          cell.wrrl_quality = Math.min(5.0, Math.max(1.0, cell.wrrl_quality + currentModeDef.wrrlEffectPerTurn));
+    for (let x = 0; x < COLS; x++) {
+      const cell = updatedGrid[8][x];
+      if (cell.terrain === 'Water') {
+        if (stats.paperFactoryMode === 'Vollbetrieb') {
+          cell.wrrl_quality = Math.min(5.0, cell.wrrl_quality + 0.45); // dirties river!
+        } else if (stats.paperFactoryMode === 'Renaturierung') {
+          cell.wrrl_quality = Math.max(1.0, cell.wrrl_quality - 0.55); // purifies river!
         }
       }
     }
@@ -832,14 +973,9 @@ export default function App() {
       year: nextYear,
       round: nextRound,
       budget: Math.max(0, prev.budget + roundIncome - nimbyFee),
-      researchPoints: prev.researchPoints + currentModeDef.researchPerRound,
+      researchPoints: prev.researchPoints + (stats.paperFactoryMode === 'Umrüstung' ? 1 : 0),
       climateRisk: Math.min(100, Math.round(rawRisk)),
-      co2Footprint: currentCO2,
-      factoryCooldown: Math.max(0, prev.factoryCooldown - 1),
-      // Check win/collapse conditions at year end
-      gamePhase: nextYear >= 2041
-        ? (prev.globalWrrl >= 65 && prev.citizenAcceptance >= 55 ? 'end_win' : 'end_collapse')
-        : prev.gamePhase,
+      co2Footprint: currentCO2
     }));
 
     // Trigger seasonal report popup
@@ -849,12 +985,12 @@ export default function App() {
     const seasonDetailsColors: GameNotificationDetail[] = [
       { label: 'Einnahmen Basis', value: '+10 €', changeType: 'positive' }
     ];
-    if (currentModeDef.roundIncome !== 0) {
-      seasonDetailsColors.push({
-        label: `Schoellershammer (${currentModeDef.label})`,
-        value: currentModeDef.roundIncome > 0 ? `+${currentModeDef.roundIncome} €` : `${currentModeDef.roundIncome} €`,
-        changeType: currentModeDef.roundIncome > 0 ? 'positive' : 'negative'
-      });
+    if (stats.paperFactoryMode === 'Vollbetrieb') {
+      seasonDetailsColors.push({ label: 'Industrieertrag (Schoellershammer)', value: '+15 €', changeType: 'positive' });
+    } else if (stats.paperFactoryMode === 'Umrüstung') {
+      seasonDetailsColors.push({ label: 'Modernisierungsvertrag', value: '+5 €', changeType: 'positive' });
+    } else if (stats.paperFactoryMode === 'Renaturierung') {
+      seasonDetailsColors.push({ label: 'Unterhalt Renaturierungszone', value: '-4 €', changeType: 'negative' });
     }
 
     if (countTourism > 0) {
@@ -867,8 +1003,8 @@ export default function App() {
 
     seasonDetailsColors.push({ label: 'Netto-Quartalsbudget', value: `+${roundIncome - nimbyFee} €`, changeType: 'positive' });
 
-    if (currentModeDef.researchPerRound > 0) {
-      seasonDetailsColors.push({ label: 'Forschungsdirektive', value: `+${currentModeDef.researchPerRound} 🧪`, changeType: 'positive' });
+    if (stats.paperFactoryMode === 'Umrüstung') {
+      seasonDetailsColors.push({ label: 'Forschungsdirektive', value: '+1 🧪', changeType: 'positive' });
     }
 
     seasonDetailsColors.push({ label: 'CO₂-Ausstoß', value: `${currentCO2}t`, changeType: currentCO2 < 100 ? 'positive' : 'negative' });
@@ -914,395 +1050,1010 @@ export default function App() {
 
   // Status categories helpers
   const getAcceptanceLabel = (acc: number) => {
-    if (acc >= 75) return { text: 'Enthusiastisch', style: 'text-eco-primary bg-eco-primary/10 border-eco-primary/30' };
-    if (acc >= 45) return { text: 'Kooperativ', style: 'text-ink-1 bg-parch-2 border-parch-4/50' };
-    return { text: 'Widerständig (⚠️ NIMBY)', style: 'text-red-400 bg-red-900/25 border-red-700/40 animate-pulse' };
+    if (acc >= 75) return { text: 'Enthusiastisch', style: 'text-green-700 bg-green-50 border-green-200' };
+    if (acc >= 45) return { text: 'Kooperativ', style: 'text-ink-1 bg-parch-0 border-ink-1/10' };
+    return { text: 'Widerständig (⚠️ NIMBY)', style: 'text-red-700 bg-red-50 border-red-200 animate-pulse' };
   };
 
   const getCO2Rating = (tons: number) => {
-    if (tons < 60) return { text: 'Exzellent (Kompensiert)', style: 'text-eco-primary font-bold' };
+    if (tons < 60) return { text: 'Exzellent (Kompensiert)', style: 'text-green-700' };
     if (tons < 110) return { text: 'Moderat', style: 'text-ink-1' };
-    return { text: 'Kritisch (Treibhaus)', style: 'text-red-400 font-bold' };
+    return { text: 'Kritisch (Treibhaus)', style: 'text-red-600 font-bold' };
   };
 
   const isLachsRenaturierungUnlocked = researchNodes.find(n => n.id === 'schoeller_renat')?.unlocked;
-  const activeBuildCard = cards.find(c => c.id === 'act_build');
-  const selectedTile = selectedCoord ? grid[selectedCoord.gy]?.[selectedCoord.gx] : null;
-
-  // ── Navigation & Sheet State ──────────────────────────
-  const [activeNavTab, setActiveNavTab] = useState<'simulation' | 'stats' | 'history' | 'build'>('simulation');
-  const [buildSheetTab, setBuildSheetTab] = useState<'aktionen' | 'bauen'>('aktionen');
-  const [sheetExpanded, setSheetExpanded] = useState(false);
-
-  // ── Derived helpers ──────────────────────────────────
-  const wrrlLabel = stats.globalWrrl >= 70 ? 'EXC' : stats.globalWrrl >= 45 ? 'OK' : 'LOW';
-  const ffhLabel  = stats.globalFfh  >= 70 ? 'EXC' : stats.globalFfh  >= 45 ? 'STB' : 'LOW';
 
   return (
-    <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: '#0d1417', fontFamily: '"Inter", system-ui, sans-serif', overflow: 'hidden' }}>
+    <div className="relative w-screen h-screen flex flex-col md:grid md:grid-rows-[auto_1fr_auto] bg-parch-1 font-sans select-none paper-overlay">
+      
+      {/* ── TOPBAR: Key Landscape Indices ── */}
+      <header className="bg-parch-0/80 border border-ink-1/10 rounded-2xl px-3.5 py-2.5 sm:px-5 sm:py-3 flex flex-wrap items-center justify-between gap-2 sm:gap-3 shadow-lg z-30 mx-4 mt-4 backdrop-blur-md">
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5">
+            <span className="font-serif font-bold text-base sm:text-lg lg:text-xl text-ink-0 tracking-wide">
+              RUR<span className="text-eco-primary">NOVA</span>
+            </span>
+            <span className="text-[9px] sm:text-[10px] bg-eco-primary/10 text-eco-primary border border-eco-primary/20 px-1 py-0.5 rounded font-mono font-bold uppercase tracking-tight hidden sm:inline">
+              TABLET PRO
+            </span>
+          </div>
+          <span className="text-[9px] sm:text-[10px] text-ink-2 font-medium italic block leading-none hidden md:block">
+            Anstalt für Gewässermanagement Kreis Düren, NRW
+          </span>
+        </div>
 
-      {/* ══ TOP HEADER ══ */}
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px', background: 'rgba(36,43,46,0.82)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 4px 20px rgba(0,0,0,0.28)', flexShrink: 0, zIndex: 30 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className="material-symbols-outlined" style={{ color: '#9ed1bd', fontSize: 22 }}>eco</span>
-          <span style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 800, fontSize: 18, color: '#9ed1bd', letterSpacing: '-0.02em' }}>RurNova</span>
+        {/* Turn Season Banner */}
+        <div className="flex items-center gap-1.5 sm:gap-2 border-l border-ink-1/10 pl-2 sm:pl-3">
+          {/* Desktop/Tablet view */}
+          <div className="hidden sm:flex items-center gap-2">
+            <div className="bg-parch-0 border border-ink-1/15 rounded-lg px-2.5 py-1.5 text-center min-w-[85px] shadow-sm">
+              <div className="font-serif font-bold text-[10px] text-eco-primary tracking-widest leading-none">
+                {SEASONS[stats.season]}
+              </div>
+              <div className="font-serif font-bold text-base text-ink-1 leading-none mt-1">
+                {stats.year}
+              </div>
+            </div>
+            <div className="text-[9px] font-mono uppercase text-ink-3">
+              Runde <span className="font-bold text-ink-1 text-sm block">{stats.round}</span>
+            </div>
+          </div>
+          
+          {/* Mobile view */}
+          <div className="flex sm:hidden flex-col bg-parch-0 border border-ink-1/15 rounded-md px-2 py-0.5 shadow-sm text-center">
+            <span className="font-serif font-bold text-[9px] text-eco-primary leading-tight uppercase tracking-wider">
+              {SEASONS[stats.season].slice(0, 4)}. {stats.year}
+            </span>
+            <span className="font-mono text-[8px] text-ink-2 leading-tight">
+              Runde <span className="font-bold text-ink-0 text-xs">{stats.round}</span>
+            </span>
+          </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span className="label-caps" style={{ color: '#c0c9c3' }}>RUNDE {stats.round}/40</span>
-          <span className="label-caps" style={{ color: '#9ed1bd' }}>{SEASONS[stats.season]} {stats.year}</span>
+
+        {/* Resource Indicators (Always compact, perfect for mobile and desktop) */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Cash coin */}
+          <div className="bg-parch-0 border border-ink-1/15 rounded-full px-2.5 py-1 sm:px-3 sm:py-1.5 flex items-center gap-1.5 sm:gap-2 shadow-sm">
+            <span className="text-base sm:text-lg">💶</span>
+            <div className="flex flex-col">
+              <span className="font-mono text-xs sm:text-sm md:text-base font-bold leading-none text-ink-0">
+                {stats.budget} €
+              </span>
+              <span className="text-[8px] text-ink-3 uppercase font-mono tracking-wider leading-none hidden sm:inline">
+                Budget
+              </span>
+            </div>
+          </div>
+
+          {/* Research Flask */}
+          <div className="bg-parch-0 border border-ink-1/15 rounded-full px-2.5 py-1 sm:px-3 sm:py-1.5 flex items-center gap-1.5 sm:gap-2 shadow-sm">
+            <span className="text-base sm:text-lg">🧪</span>
+            <div className="flex flex-col">
+              <span className="font-mono text-xs sm:text-sm md:text-base font-bold leading-none text-res-primary font-bold">
+                {stats.researchPoints}
+              </span>
+              <span className="text-[8px] text-ink-3 uppercase font-mono tracking-wider leading-none hidden sm:inline">
+                Forschung
+              </span>
+            </div>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            onClick={handleUndo}
-            disabled={undoHistory.length === 0}
-            style={{ width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: undoHistory.length > 0 ? 'rgba(158,209,189,.12)' : 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.10)', color: undoHistory.length > 0 ? '#9ed1bd' : '#404945', transition: 'all .14s' }}
+
+        {/* Mobile Toggle for Statistics */}
+        <button
+          onClick={() => setIsHeaderExpanded(!isHeaderExpanded)}
+          className="flex lg:hidden items-center gap-1 bg-parch-1 border border-ink-1/15 hover:bg-parch-2 rounded-lg px-2 py-1 text-xs font-serif font-bold text-ink-1 transition-colors shadow-sm ml-auto select-none"
+        >
+          <span className="text-sm">📊</span>
+          <span className="hidden sm:inline">Indizes</span>
+          <svg 
+            className={`w-3 h-3 text-ink-3 transition-transform duration-300 ${isHeaderExpanded ? 'rotate-180' : 'rotate-0'}`} 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
           >
-            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>undo</span>
-          </button>
-          <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(158,209,189,.14)', border: '1.5px solid rgba(158,209,189,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#9ed1bd' }}>account_circle</span>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {/* Global Statistics Indices - Desktop inline / Mobile Collapsible */}
+        <div className={`
+          ${isHeaderExpanded ? 'flex' : 'hidden'} 
+          lg:flex items-center w-full lg:w-auto mt-2 lg:mt-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-ink-1/10 border-dashed max-w-full overflow-x-auto tablet-scroll py-0.5
+        `}>
+          <div className="flex flex-wrap lg:flex-nowrap items-center gap-1.5 sm:gap-2 w-full lg:w-auto">
+            {[
+              { label: 'Güte (WRRL)', value: `${stats.globalWrrl}%`, color: 'text-wat-primary', width: stats.globalWrrl },
+              { label: 'Artenschutz (FFH)', value: `${stats.globalFfh}%`, color: 'text-eco-primary', width: stats.globalFfh },
+              { label: 'Durchgängigkeit', value: `${stats.continuity}%`, color: 'text-fau-primary', width: stats.continuity },
+              { label: 'Klimarisiko', value: `${stats.climateRisk}%`, color: 'text-red-700/80', width: stats.climateRisk }
+            ].map(score => (
+              <div key={score.label} className="bg-parch-0 border border-ink-1/15 rounded-lg p-2 min-w-[85px] sm:min-w-[110px] flex-1 lg:flex-initial shadow-sm flex flex-col justify-between">
+                <span className="font-serif font-bold text-[8px] sm:text-[9px] text-ink-3 tracking-wider uppercase block leading-none">
+                  {score.label}
+                </span>
+                <span className={`font-serif text-sm sm:text-lg font-bold leading-none mt-1 block ${score.color}`}>
+                  {score.value}
+                </span>
+                {/* Dynamic colored loading visual microbar */}
+                <div className="w-full h-1 bg-parch-3 rounded-full overflow-hidden mt-1.5">
+                  <div 
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${score.width}%`,
+                      backgroundColor: score.color.includes('wat') ? '#4a8fc4' : score.color.includes('eco') ? '#4aab82' : score.color.includes('fau') ? '#c4763a' : '#c44040'
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </header>
 
-      {/* ══ STAT HUD ROW ══ */}
-      <div style={{ padding: '8px 12px 0', flexShrink: 0, zIndex: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-          <div className="stat-card earth">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#A68966' }}>payments</span>
-              <span className="label-caps" style={{ color: '#8a938e' }}>BUDGET</span>
-            </div>
-            <div className="data-num" style={{ color: '#dde4e7' }}>{stats.budget}€</div>
-            <div style={{ fontSize: 10, color: '#A68966', fontFamily: '"JetBrains Mono", monospace' }}>{stats.researchPoints} 🧪</div>
-          </div>
-          <div className="stat-card eco">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#76C043' }}>diversity_3</span>
-              <span className="label-caps" style={{ color: '#8a938e' }}>BIO</span>
-            </div>
-            <div className="data-num" style={{ color: '#dde4e7' }}>{stats.globalFfh}%</div>
-            <div style={{ fontSize: 10, color: '#76C043', fontFamily: '"JetBrains Mono", monospace' }}>{ffhLabel}</div>
-          </div>
-          <div className="stat-card water">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#4EB3D3' }}>water_drop</span>
-              <span className="label-caps" style={{ color: '#8a938e' }}>H2O</span>
-            </div>
-            <div className="data-num" style={{ color: '#dde4e7' }}>{stats.globalWrrl}%</div>
-            <div style={{ fontSize: 10, color: '#4EB3D3', fontFamily: '"JetBrains Mono", monospace' }}>{wrrlLabel}</div>
-          </div>
-        </div>
-      </div>
+      {/* ── MAIN WORKSPACE: Split Sidebars ── */}
+      <main 
+        className="flex-1 flex flex-col md:grid gap-4 p-4 overflow-hidden transition-all duration-300 ease-in-out"
+        style={{
+          gridTemplateColumns: `
+            ${showLeftSidebar ? '104px ' : ''} 
+            1fr 
+            ${showRightSidebar ? (activeRightMenu ? '430px' : '72px') : ''}
+          `.trim().replace(/\s+/g, ' ')
+        }}
+      >
+        
+        {/* LEFT COLUMN: Arche Nova Power Actions Strip */}
+        {showLeftSidebar && (
+          <aside className="bg-parch-0 border border-ink-1/10 rounded-2xl p-3.5 flex flex-row md:flex-col gap-2.5 items-stretch justify-between overflow-x-auto md:overflow-visible tablet-scroll z-20 w-full md:w-auto shadow-md animate-in fade-in slide-in-from-left duration-200">
+          <div className="flex flex-row md:flex-col gap-2.5 w-full md:overflow-visible">
+            <span className="font-serif font-bold text-[9px] text-ink-3 tracking-widest uppercase text-center hidden md:block select-none mb-1">
+              Aktionen
+            </span>
+            {cards.map(card => {
+              const isSelected = selectedCardId === card.id;
+              const isHovered = hoveredCardId === card.id && hasHoverSupport;
+              const details = CARD_DETAILS[card.id] || {
+                title: card.name,
+                subtitle: "Kompakt",
+                effect: "Standardaktion ausführen.",
+                tip: "Klicke zum Auswählen.",
+                strengthLabel: "Effektstärke"
+              };
+              const renderedStrengthEffect = getCardStrengthEffectResult(card.id, card.strength);
 
-      {/* ══ MAIN AREA ══ */}
-      <main style={{ position: 'relative', flex: 1, overflow: 'hidden', minHeight: 0 }}>
-
-        {/* MAP */}
-        {activeNavTab === 'simulation' && grid.length > 0 && (
-          <IsometricMap
-            grid={grid}
-            selectedCoord={selectedCoord}
-            onSelectTile={(gx, gy) => {
-              setSelectedCoord({ gx, gy });
-              if (selectedBuilding) {
-                handleBuildDirectly(gx, gy, selectedBuilding);
-              }
-            }}
-            activeOverlay={activeOverlay}
-          />
-        )}
-
-        {/* STATS PANEL */}
-        {activeNavTab === 'stats' && (
-          <div style={{ height: '100%', overflowY: 'auto', padding: '16px 16px 80px' }} className="dark-scroll animate-fade-in">
-            <p style={{ fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 700, fontSize: 16, color: '#dde4e7', marginBottom: 16 }}>Ökologische Indizes</p>
-            {[
-              { label: 'WRRL Gewässerqualität', value: stats.globalWrrl,         color: '#4EB3D3', icon: 'water_drop' },
-              { label: 'FFH Biodiversität',     value: stats.globalFfh,          color: '#76C043', icon: 'diversity_3' },
-              { label: 'Durchgängigkeit',       value: stats.continuity,         color: '#9ed1bd', icon: 'swap_vert' },
-              { label: 'Klimarisiko',           value: stats.climateRisk,        color: '#ffb4ab', icon: 'thermostat' },
-              { label: 'Bürgerakzeptanz',       value: stats.citizenAcceptance,  color: '#A68966', icon: 'people' },
-              { label: 'Erneuerbare Energie',   value: stats.renewableEnergy,    color: '#76C043', icon: 'energy_savings_leaf' },
-            ].map(m => (
-              <div key={m.label} style={{ marginBottom: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: m.color }}>{m.icon}</span>
-                    <span style={{ fontSize: 12, color: '#c0c9c3' }}>{m.label}</span>
-                  </div>
-                  <span style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 13, fontWeight: 600, color: m.color }}>{m.value}%</span>
-                </div>
-                <div style={{ height: 6, background: 'rgba(255,255,255,.08)', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${m.value}%`, background: m.color, borderRadius: 99, transition: 'width .4s cubic-bezier(.3,.7,.4,1)' }} />
-                </div>
-              </div>
-            ))}
-            <div style={{ marginTop: 20, padding: 14, background: 'rgba(47,54,57,.5)', borderRadius: 12, border: '1px solid rgba(255,255,255,.06)' }}>
-              <p className="label-caps" style={{ color: '#8a938e', marginBottom: 8 }}>KLIMABILANZ</p>
-              <div className="data-num" style={{ color: stats.co2Footprint < 100 ? '#76C043' : '#ffb4ab' }}>{stats.co2Footprint}t CO₂</div>
-              <p style={{ fontSize: 11, color: '#8a938e', marginTop: 4 }}>Erneuerbare Anlagen, Auwald & Klärwerk-Upgrades senken den Ausstoß</p>
-            </div>
-            <div style={{ marginTop: 12, padding: 14, background: 'rgba(47,54,57,.5)', borderRadius: 12, border: '1px solid rgba(255,255,255,.06)' }}>
-              <p className="label-caps" style={{ color: '#8a938e', marginBottom: 8 }}>FABRIK SCHOELLERSHAMMER</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <span style={{ fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 700, fontSize: 14, color: '#dde4e7' }}>{stats.paperFactoryMode}</span>
-                {stats.factoryCooldown > 0 && (
-                  <span className="tag-pill" style={{ color: '#ffb4ab', borderColor: 'rgba(255,180,171,.3)', background: 'rgba(255,180,171,.08)' }}>⏳ {stats.factoryCooldown} Runden</span>
-                )}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {(['Vollbetrieb','Umrüstung','Stilllegung','Renaturierung'] as const).map(m => (
-                  <button
-                    key={m}
-                    onClick={() => handleFactoryModeChange(m)}
-                    style={{ padding: '8px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: stats.paperFactoryMode === m ? 'rgba(158,209,189,.18)' : 'rgba(255,255,255,.04)', border: `1px solid ${stats.paperFactoryMode === m ? 'rgba(158,209,189,.4)' : 'rgba(255,255,255,.08)'}`, color: stats.paperFactoryMode === m ? '#9ed1bd' : '#8a938e', fontFamily: '"Inter",sans-serif', transition: 'all .14s', cursor: 'pointer' }}
-                  >{m}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* HISTORY / LOG */}
-        {activeNavTab === 'history' && (
-          <div style={{ height: '100%', overflowY: 'auto', padding: '16px 16px 80px' }} className="dark-scroll animate-fade-in">
-            <p style={{ fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 700, fontSize: 16, color: '#dde4e7', marginBottom: 16 }}>Missions & Protokoll</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {quests.map(q => (
-                <div key={q.id} style={{ padding: '12px 14px', background: 'rgba(47,54,57,.5)', borderRadius: 12, border: `1px solid ${q.status === 'completed' ? 'rgba(118,192,67,.3)' : 'rgba(255,255,255,.06)'}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#dde4e7' }}>{q.title}</span>
-                    <span className="tag-pill" style={{ flexShrink: 0, color: q.status === 'completed' ? '#76C043' : '#9ed1bd', borderColor: q.status === 'completed' ? 'rgba(118,192,67,.3)' : 'rgba(158,209,189,.25)', background: q.status === 'completed' ? 'rgba(118,192,67,.1)' : 'rgba(158,209,189,.06)' }}>
-                      {q.status === 'completed' ? '✓ FERTIG' : 'AKTIV'}
-                    </span>
-                  </div>
-                  <p style={{ fontSize: 12, color: '#8a938e', marginTop: 5, lineHeight: 1.5 }}>{q.description}</p>
-                  <p style={{ fontSize: 11, color: '#9ed1bd', marginTop: 4 }}>{q.rewardText}</p>
-                </div>
-              ))}
-              <div style={{ padding: '12px 14px', background: 'rgba(47,54,57,.5)', borderRadius: 12, border: '1px solid rgba(255,255,255,.06)', marginTop: 4 }}>
-                <p className="label-caps" style={{ color: '#4EB3D3', marginBottom: 10 }}>BIOTRACK — WIEDERANSIEDLUNG</p>
-                {speciesList.map(sp => (
-                  <div key={sp.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: sp.dotColor, flexShrink: 0 }} />
-                    <span style={{ fontSize: 12, color: sp.locked ? '#404945' : '#c0c9c3', flex: 1 }}>{sp.name.replace(' 🔒', '')}</span>
-                    <div style={{ width: 60, height: 4, background: 'rgba(255,255,255,.08)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${sp.pct}%`, background: sp.locked ? '#404945' : sp.dotColor }} />
-                    </div>
-                    <span style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 11, color: sp.locked ? '#404945' : '#9ed1bd', width: 32, textAlign: 'right' }}>{sp.pct}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* RESEARCH (Build tab) */}
-        {activeNavTab === 'build' && (
-          <div style={{ height: '100%', overflowY: 'auto', padding: '16px 16px 80px' }} className="dark-scroll animate-fade-in">
-            <p style={{ fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 700, fontSize: 16, color: '#dde4e7', marginBottom: 4 }}>Forschungsbaum</p>
-            <p style={{ fontSize: 12, color: '#8a938e', marginBottom: 16 }}>Forschungspunkte: <span style={{ color: '#9ed1bd', fontFamily: '"JetBrains Mono",monospace', fontWeight: 600 }}>{stats.researchPoints} 🧪</span></p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {researchNodes.map(node => {
-                const prereqsMet = node.requirements.every(r => researchNodes.find(n => n.id === r)?.unlocked);
-                const canUnlock = !node.unlocked && prereqsMet && stats.researchPoints >= node.cost;
-                return (
-                  <div key={node.id} style={{ padding: '12px 14px', borderRadius: 12, background: node.unlocked ? 'rgba(27,77,62,.35)' : 'rgba(47,54,57,.5)', border: `1px solid ${node.unlocked ? 'rgba(158,209,189,.3)' : 'rgba(255,255,255,.06)'}`, opacity: (!node.unlocked && !prereqsMet) ? 0.42 : 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: node.unlocked ? '#9ed1bd' : '#dde4e7' }}>{node.name}</span>
-                      {node.unlocked
-                        ? <span className="tag-pill" style={{ color: '#76C043', borderColor: 'rgba(118,192,67,.3)', background: 'rgba(118,192,67,.1)', flexShrink: 0 }}>✓</span>
-                        : <button onClick={() => handleUnlockResearch(node.id)} disabled={!canUnlock} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600, background: canUnlock ? 'rgba(158,209,189,.18)' : 'rgba(255,255,255,.04)', border: `1px solid ${canUnlock ? 'rgba(158,209,189,.4)' : 'rgba(255,255,255,.08)'}`, color: canUnlock ? '#9ed1bd' : '#404945', fontFamily: '"JetBrains Mono",monospace', flexShrink: 0, cursor: canUnlock ? 'pointer' : 'default' }}>{node.cost} 🧪</button>
-                      }
-                    </div>
-                    <p style={{ fontSize: 12, color: '#8a938e', marginTop: 5, lineHeight: 1.4 }}>{node.effect}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Left Map Tool Sidebar */}
-        {activeNavTab === 'simulation' && (
-          <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', gap: 8, zIndex: 20 }}>
-            {(['none','wrrl','ffh','flood'] as const).map((ov, i) => {
-              const icons = ['layers','water_drop','park','flood'] as const;
               return (
-                <button key={ov} className={`map-tool-btn${activeOverlay === ov ? ' active' : ''}`} onClick={() => setActiveOverlay(activeOverlay === ov ? 'none' : ov)}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 20 }}>{icons[i]}</span>
-                </button>
+                <div
+                  key={card.id}
+                  className="w-[72px] h-[84px] md:w-full md:h-[96px] shrink-0 relative"
+                  onMouseEnter={() => setHoveredCardId(card.id)}
+                  onMouseLeave={() => setHoveredCardId(null)}
+                >
+                  <button
+                    onClick={() => handlePlayCard(card.id)}
+                    className={`absolute left-0 top-0 rounded-xl border-2 text-center flex items-center justify-between transition-all duration-300 ease-out select-none cursor-pointer ${
+                      isHovered
+                        ? 'w-[280px] sm:w-[335px] h-auto min-h-full z-50 bg-parch-0 border-ink-1 shadow-2xl p-3 text-ink-0'
+                        : isSelected
+                          ? 'w-full h-full bg-ink-1 text-parch-1 border-ink-1 shadow-md p-2.5 translate-x-[2px]'
+                          : 'w-full h-full bg-parch-1 border-ink-1/20 hover:border-ink-2 shadow-sm p-2.5'
+                    }`}
+                  >
+                    {isHovered ? (
+                      <div className="flex items-stretch gap-3 w-full min-h-full text-left">
+                        {/* Compact left column visually mirroring the card core state */}
+                        <div className="flex flex-col items-center justify-between shrink-0 border-r border-ink-1/10 pr-2.5 min-w-[54px] self-stretch py-0.5">
+                          <span className="text-2xl mt-0.5 filter drop-shadow">{card.emoji}</span>
+                          <div className="flex flex-col items-center leading-none">
+                            <span className="text-[8px] font-mono text-ink-3 uppercase tracking-wider">Stärke</span>
+                            <span className="text-md font-serif font-bold text-ink-1 mt-0.5">{card.strength}</span>
+                          </div>
+                          <div className="flex gap-0.5 justify-center">
+                            {[1, 2, 3, 4, 5].map(idx => (
+                              <div
+                                key={idx}
+                                className={`w-1 h-2 rounded-full ${
+                                  idx <= card.strength ? 'bg-eco-primary' : 'bg-parch-3/60'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Detailed expansion card body */}
+                        <div className="flex-1 flex flex-col justify-between min-h-full min-w-0 py-0.5">
+                          <div>
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-serif font-bold text-xs uppercase text-ink-1 overflow-hidden text-ellipsis whitespace-nowrap">
+                                {details.title}
+                              </span>
+                              <span className="text-[8px] font-mono bg-parch-3 text-ink-2 px-1.5 rounded py-0.5 shrink-0 uppercase tracking-widest font-semibold font-bold">
+                                {details.subtitle}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-ink-2 leading-snug mt-1 select-none whitespace-normal">
+                              {details.effect}
+                            </p>
+                          </div>
+
+                          <div className="border-t border-dashed border-ink-1/10 pt-1.2 mt-1">
+                            <div className="flex items-center justify-between text-[9px] font-mono">
+                              <span className="text-ink-3 uppercase tracking-wider">{details.strengthLabel}:</span>
+                              <span className="font-bold text-eco-primary shrink-0">{renderedStrengthEffect}</span>
+                            </div>
+                            <p className="text-[9px] text-ink-3 italic mt-0.5 leading-snug whitespace-normal">
+                              💡 {details.tip}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-between w-full h-full gap-1">
+                        <span className="text-2xl mt-0.5 filter drop-shadow">{card.emoji}</span>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-mono uppercase tracking-wide leading-none select-none text-ink-3">
+                            Punkte
+                          </span>
+                          <span className={`text-lg font-serif font-bold leading-none mt-0.5 select-none ${isSelected ? 'text-parch-1' : 'text-ink-0'}`}>
+                            {card.strength}
+                          </span>
+                        </div>
+
+                        {/* Pips visual meters */}
+                        <div className="flex gap-0.5 justify-center mt-0.5">
+                          {[1, 2, 3, 4, 5].map(idx => (
+                            <div
+                              key={idx}
+                              className={`w-1 h-2.5 rounded-full ${
+                                idx <= card.strength
+                                  ? isSelected ? 'bg-parch-1' : 'bg-eco-primary'
+                                  : 'bg-parch-3/60'
+                              }`}
+                            />
+                          ))}
+                        </div>
+
+                        <span className="text-[8px] font-mono leading-none uppercase select-none opacity-80 max-w-[50px] overflow-hidden text-ellipsis whitespace-nowrap">
+                          {card.name.split(' ')[0]}
+                        </span>
+                      </div>
+                    )}
+                  </button>
+                </div>
               );
             })}
           </div>
+
+          {/* Quick Info & Static Map Legends at Left Hand Bottom */}
+          <div className="hidden md:flex flex-col items-center gap-1 opacity-70">
+            <button 
+              onClick={() => {
+                setShowTutorial(true);
+                setTutorialStep(0);
+              }}
+              className="p-1 rounded-full text-ink-3 hover:text-ink-0 active:bg-parch-3"
+              title="Anleitung"
+            >
+              <HelpCircle className="w-5 h-5" />
+            </button>
+            <span className="text-[9px] font-serif text-ink-3">Guide</span>
+          </div>
+        </aside>
         )}
 
-        {/* Bottom Build Sheet */}
-        {activeNavTab === 'simulation' && (
-          <div
-            className="bottom-sheet"
-            style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 30,
-              padding: '14px 16px 16px',
-              maxHeight: sheetExpanded ? '52vh' : 'auto',
-              transition: 'max-height .3s cubic-bezier(.3,.7,.4,1)',
-              overflowY: sheetExpanded ? 'auto' : 'hidden',
-            }}
-          >
-            {/* Sheet Header Row */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <div style={{ display: 'flex', gap: 20 }}>
-                {(['aktionen','bauen'] as const).map(t => (
-                  <button key={t} onClick={() => setBuildSheetTab(t)} style={{ background: 'none', border: 'none', paddingBottom: 6, borderBottom: buildSheetTab === t ? '2px solid #9ed1bd' : '2px solid transparent', color: buildSheetTab === t ? '#9ed1bd' : '#8a938e', fontFamily: '"JetBrains Mono",monospace', fontSize: 10, fontWeight: 500, letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer', transition: 'color .14s' }}>
-                    {t.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {selectedBuilding && (
-                  <span className="tag-pill" style={{ color: '#9ed1bd', borderColor: 'rgba(158,209,189,.3)', background: 'rgba(158,209,189,.08)', fontSize: 9 }}>
-                    {selectedBuilding.icon} {getEffectiveCost(selectedBuilding, activeBuildCard?.strength || 1, researchNodes)}€
-                  </span>
-                )}
-                <button onClick={() => setSheetExpanded(!sheetExpanded)} style={{ background: 'none', border: 'none', color: '#8a938e', cursor: 'pointer', lineHeight: 1, padding: 4 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 22 }}>{sheetExpanded ? 'expand_more' : 'expand_less'}</span>
-                </button>
-              </div>
-            </div>
+        {/* CENTER COLUMN: The Dynamic Interactive Sandbox Hex Map */}
+        <section className="relative flex-1 bg-parch-1 border border-ink-1/10 rounded-2xl overflow-hidden flex flex-col shadow-md">
+          {/* Map Filters Overlay */}
+          <div className="absolute top-3 left-3 z-40 bg-parch-0/90 border border-ink-1/10 rounded-md flex items-center gap-1.5 p-1 px-1.5 shadow-md scale-90 sm:scale-100 backdrop-blur-sm">
+            <span className="font-serif font-bold text-[10px] text-ink-2 uppercase tracking-wide mr-1 select-none">
+              Atlas-Filter:
+            </span>
+            {(
+              [
+                { id: 'none', label: 'Kein' },
+                { id: 'wrrl', label: 'WRRL-Güte' },
+                { id: 'ffh', label: 'Biotope (FFH)' },
+                { id: 'flood', label: 'Flutrisiko' }
+              ] as const
+            ).map(overlay => (
+              <button
+                key={overlay.id}
+                onClick={() => setActiveOverlay(overlay.id)}
+                className={`px-2.5 py-1 rounded text-[10px] font-serif font-semibold border ${
+                  activeOverlay === overlay.id
+                    ? 'bg-ink-1 text-parch-0 border-ink-1 shadow-sm'
+                    : 'bg-parch-2/60 text-ink-1 hover:border-ink-1 border-transparent'
+                }`}
+              >
+                {overlay.label}
+              </button>
+            ))}
+          </div>
 
-            {/* AKTIONEN tab */}
-            {buildSheetTab === 'aktionen' && (
-              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }} className="no-scrollbar">
-                {cards.map(card => (
-                  <div key={card.id} className={`build-card${selectedCardId === card.id ? ' selected' : ''}`} onClick={() => { handlePlayCard(card.id); setBuildSheetTab('bauen'); }}>
-                    <div style={{ width: 52, height: 52, borderRadius: 12, background: selectedCardId === card.id ? 'rgba(158,209,189,.15)' : 'rgba(255,255,255,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
-                      {card.emoji}
+          {/* Mobile/Tablet HUD Sidebar Toggles with game-like tactile look & animations */}
+          <div className="absolute top-3 right-3 z-40 flex items-center gap-1.5 p-1 bg-parch-0/90 border border-ink-1/15 rounded-md shadow-md scale-90 sm:scale-100 backdrop-blur-sm select-none">
+            <button
+              onClick={() => setShowLeftSidebar(!showLeftSidebar)}
+              className={`px-2.5 py-1 rounded text-[10px] font-serif font-semibold border transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                showLeftSidebar 
+                  ? 'bg-ink-1 text-parch-0 border-ink-1 shadow-sm' 
+                  : 'bg-parch-2/60 text-ink-1 border-transparent hover:border-ink-1/30'
+              }`}
+              title="Aktionsleiste umschalten"
+            >
+              <span>🏗️</span>
+              <span>Aktionen</span>
+            </button>
+            <button
+              onClick={() => setShowRightSidebar(!showRightSidebar)}
+              className={`px-2.5 py-1 rounded text-[10px] font-serif font-semibold border transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                showRightSidebar 
+                  ? 'bg-ink-1 text-parch-0 border-ink-1 shadow-sm' 
+                  : 'bg-parch-2/60 text-ink-1 border-transparent hover:border-ink-1/30'
+              }`}
+              title="Steuerungselemente umschalten"
+            >
+              <span>📜</span>
+              <span>Details</span>
+            </button>
+          </div>
+
+          <div className="flex-1 w-full h-full relative" id="isometric-canvas-wrapper">
+            {grid.length > 0 && (
+              <IsometricMap
+                grid={grid}
+                selectedTile={selectedCoord}
+                selectedBuilding={selectedBuilding}
+                onSelectTile={(gx, gy) => {
+                  setSelectedCoord({ gx, gy });
+                  setSelectedCardId('act_build');
+                  if (selectedBuilding) {
+                    handleBuildDirectly(gx, gy, selectedBuilding);
+                  }
+                }}
+                activeOverlay={activeOverlay}
+              />
+            )}
+          </div>
+        </section>
+
+        {/* RIGHT COLUMN: Tabbed HUD Sidebar & Icons Dock */}
+        {showRightSidebar && (
+          <aside className={`flex flex-col md:flex-row gap-3 h-full overflow-hidden transition-all duration-350 ${
+            activeRightMenu ? 'w-full md:w-[430px]' : 'w-full md:w-[72px]'
+          } shrink-0`}>
+            
+            {/* 1. Detail Panel for Active Menu */}
+            {activeRightMenu && (
+              <div className="flex-1 bg-parch-0 border border-ink-1/10 rounded-2xl p-4 flex flex-col gap-3.5 overflow-y-auto tablet-scroll shadow-lg animate-in fade-in slide-in-from-right duration-250 min-w-0">
+                
+                {/* 1A. Tile Inspection tab content */}
+                {activeRightMenu === 'inspection' && (
+                  <div className="flex flex-col h-full">
+                    <div className="flex items-center justify-between border-b border-ink-1/10 pb-2.5 mb-2.5 select-none animate-in fade-in duration-200">
+                      <div className="flex items-center gap-1.5 font-serif font-bold text-sm text-ink-0 uppercase tracking-wider">
+                        <MapPin size={16} className="text-eco-primary animate-pulse" />
+                        <span>Kachel-Inspektion</span>
+                      </div>
+                      <button 
+                        onClick={() => setActiveRightMenu(null)}
+                        className="text-ink-3 hover:text-ink-1 p-1 hover:bg-parch-2 rounded transition-colors cursor-pointer"
+                        title="Zuklappen"
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
-                    <span className="label-caps" style={{ color: '#c0c9c3', textAlign: 'center', fontSize: 9 }}>{card.type}</span>
-                    <div style={{ display: 'flex', gap: 2 }}>
-                      {[1,2,3,4,5].map(i => (
-                        <div key={i} style={{ width: 10, height: 3, borderRadius: 2, background: i <= card.strength ? '#9ed1bd' : 'rgba(255,255,255,.12)' }} />
+
+                    {selectedCoord && grid[selectedCoord.gy]?.[selectedCoord.gx] ? (
+                      <div className="flex flex-col gap-3 animate-in fade-in duration-200">
+                        <div className="flex items-start gap-2.5 bg-parch-1 border border-ink-1/10 rounded-xl p-3 shadow-sm">
+                          <span className="text-4xl bg-parch-2 p-2 rounded border border-ink-1/10 shadow-sm leading-none flex-shrink-0 select-none">
+                            {selectedCoord.gx === 3 && selectedCoord.gy === 8 ? '🏭' :
+                             grid[selectedCoord.gy][selectedCoord.gx].terrain === 'Water' ? '🌊' :
+                             grid[selectedCoord.gy][selectedCoord.gx].terrain === 'Auwald' ? '🌲' :
+                             grid[selectedCoord.gy][selectedCoord.gx].terrain === 'Acker' ? '🌾' : '🌾'}
+                          </span>
+                          <div className="flex flex-col">
+                            <div className="font-serif font-bold text-sm text-ink-0">
+                              {grid[selectedCoord.gy][selectedCoord.gx].cityName || 'Freies Ufer / Offenland'}
+                            </div>
+                            <span className="text-xs text-ink-2 font-serif italic mt-0.5">
+                              {selectedCoord.gy < 5 ? 'Jülicher Tiefland' : selectedCoord.gy < 11 ? 'Düren Mitte' : 'Eifel Oberlauf'}
+                            </span>
+                            <span className="font-mono text-[9px] text-ink-3 mt-1 bg-parch-2/80 px-1.5 py-0.5 rounded border border-ink-1/5 self-start">
+                              X:{selectedCoord.gx} Y:{selectedCoord.gy}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Local Tile metrics */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-parch-1/70 border border-ink-1/10 rounded-lg p-2 shadow-sm">
+                            <span className="font-mono text-[8.5px] text-ink-3 uppercase block leading-none font-bold">Güte (WRRL)</span>
+                            <span className="font-serif text-md font-bold mt-1.5 text-ink-1 block">
+                              Klasse {grid[selectedCoord.gy][selectedCoord.gx].wrrl_quality.toFixed(1)}
+                            </span>
+                          </div>
+                          <div className="bg-parch-1/70 border border-ink-1/10 rounded-lg p-2 shadow-sm">
+                            <span className="font-mono text-[8.5px] text-ink-3 uppercase block leading-none font-bold">Biodiversität</span>
+                            <span className="font-serif text-md font-bold mt-1.5 text-ink-1 block">
+                              {grid[selectedCoord.gy][selectedCoord.gx].ffh_value}%
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Secondary data */}
+                        <div className="text-xs bg-parch-1/40 border border-ink-1/10 rounded-lg p-3 text-ink-1 flex flex-col gap-1.5 font-mono">
+                          <div className="flex justify-between border-b border-ink-1/5 pb-1">
+                            <span className="text-ink-3 font-sans text-[11px]">Hochwasserschutz:</span>
+                            <span className="font-bold">{grid[selectedCoord.gy][selectedCoord.gx].flood_risk}</span>
+                          </div>
+                          {grid[selectedCoord.gy][selectedCoord.gx].buildingId && (
+                            <div className="text-eco-primary font-serif font-bold text-[11px] mt-0.5 bg-eco-primary/5 p-1.5 rounded border border-eco-primary/15">
+                              Belegung: {BUILDINGS_CATALOG.find(b => b.id === grid[selectedCoord.gy][selectedCoord.gx].buildingId)?.name || 'Papierfabrik'}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action builder trigger button */}
+                        {selectedBuilding && (
+                          <div className="mt-1 bg-eco-primary/10 border border-eco-primary/20 rounded-xl p-3 flex flex-col gap-1.5 shadow-sm animate-in fade-in duration-200">
+                            <div className="text-xs text-eco-primary font-bold font-serif flex items-center gap-1">
+                              <span>🧱 Vorbereiten:</span>
+                              <span className="underline">{selectedBuilding.name}</span>
+                            </div>
+                            <button
+                              onClick={handleBuildMeasureOnSelected}
+                              className="w-full py-2 text-center font-serif text-xs font-bold text-white bg-eco-primary rounded-lg shadow-md hover:brightness-105 active:brightness-95 transition-all cursor-pointer"
+                            >
+                              Maßnahme anlegen (€)
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center p-4 py-8 bg-parch-1/40 border border-dashed border-ink-1/20 rounded-xl animate-in fade-in duration-200">
+                        <div className="text-3xl mb-2 select-none">🗺️</div>
+                        <p className="font-serif italic text-ink-2 text-xs sm:text-sm max-w-[200px]">
+                          Klicke eine Kachel auf der Karte an, um ihre Flora, Fauna und WRRL-Güte zu analysieren.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 1B. Factory Console tab content */}
+                {activeRightMenu === 'factory' && (
+                  <div className="flex flex-col h-full animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between border-b border-ink-1/10 pb-2.5 mb-2.5 select-none">
+                      <div className="flex items-center gap-1.5 font-serif font-bold text-sm text-ink-0 uppercase tracking-wider">
+                        <Factory size={16} className="text-ink-1" />
+                        <span>Schoellershammer</span>
+                      </div>
+                      <button 
+                        onClick={() => setActiveRightMenu(null)}
+                        className="text-ink-3 hover:text-ink-1 p-1 hover:bg-parch-2 rounded transition-colors cursor-pointer"
+                        title="Zuklappen"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <SchoellershammerConsole
+                      currentMode={stats.paperFactoryMode}
+                      onModeChange={handleFactoryModeChange}
+                      isRenaturierungUnlocked={isLachsRenaturierungUnlocked || false}
+                    />
+                  </div>
+                )}
+
+                {/* 1C. Species Tracker tab content */}
+                {activeRightMenu === 'species' && (
+                  <div className="flex flex-col h-full animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between border-b border-ink-1/10 pb-2.5 mb-2.5 select-none">
+                      <div className="flex items-center gap-1.5 font-serif font-bold text-sm text-ink-0 uppercase tracking-wider">
+                        <Fish size={16} className="text-blue-500 animate-bounce" />
+                        <span>Arten-Erfassung</span>
+                      </div>
+                      <button 
+                        onClick={() => setActiveRightMenu(null)}
+                        className="text-ink-3 hover:text-ink-1 p-1 hover:bg-parch-2 rounded transition-colors cursor-pointer"
+                        title="Zuklappen"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <SpeciesTracker species={speciesList} />
+                  </div>
+                )}
+
+                {/* 1D. Research Panel tab content */}
+                {activeRightMenu === 'research' && (
+                  <div className="flex flex-col h-full animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between border-b border-ink-1/10 pb-2.5 mb-2.5 select-none">
+                      <div className="flex items-center gap-1.5 font-serif font-bold text-sm text-ink-0 uppercase tracking-wider">
+                        <FlaskConical size={16} className="text-purple-600" />
+                        <span>Forschung & Tech</span>
+                      </div>
+                      <button 
+                        onClick={() => setActiveRightMenu(null)}
+                        className="text-ink-3 hover:text-ink-1 p-1 hover:bg-parch-2 rounded transition-colors cursor-pointer"
+                        title="Zuklappen"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <ResearchPanel
+                      nodes={researchNodes}
+                      researchPoints={stats.researchPoints}
+                      onUnlockNode={handleUnlockResearch}
+                    />
+                  </div>
+                )}
+
+                {/* 1E. Active Quests box ledger tab content */}
+                {activeRightMenu === 'quests' && (
+                  <div className="flex flex-col h-full animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between border-b border-ink-1/10 pb-2.5 mb-2.5 select-none">
+                      <div className="flex items-center gap-1.5 font-serif font-bold text-sm text-ink-0 uppercase tracking-wider">
+                        <Scroll size={16} className="text-amber-600" />
+                        <span>Behörden-Aufträge</span>
+                      </div>
+                      <button 
+                        onClick={() => setActiveRightMenu(null)}
+                        className="text-ink-3 hover:text-ink-1 p-1 hover:bg-parch-2 rounded transition-colors cursor-pointer"
+                        title="Zuklappen"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <div className="font-mono text-[9px] text-ink-3 mb-2 uppercase tracking-wide font-bold select-none">
+                      {quests.filter(q => q.status !== 'completed').length} offene Aufträge
+                    </div>
+                    <div className="flex flex-col gap-2 max-h-full overflow-y-auto tablet-scroll pr-1">
+                      {quests.map(q => (
+                        <div
+                          key={q.id}
+                          className={`p-3 rounded-lg border text-left flex flex-col shadow-sm transition-all duration-200 ${
+                            q.status === 'completed'
+                              ? 'bg-green-50/50 border-green-200 text-green-950 opacity-65'
+                              : 'bg-parch-1 border-ink-1/10 hover:border-ink-1/20 text-ink-0'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="font-serif font-bold text-xs">
+                              {q.title}
+                            </span>
+                            {q.status === 'completed' ? (
+                              <span className="text-[8px] font-mono font-bold bg-green-200 text-green-800 rounded px-1.5 py-0.5 uppercase shrink-0">ERLEDIGT</span>
+                            ) : (
+                              <span className="text-[8px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-200 rounded px-1.5 py-0.5 uppercase shrink-0">AKTIV</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-ink-2 mt-1 leading-normal">
+                            {q.description}
+                          </p>
+                          <span className="text-[10px] font-mono text-ink-3 mt-1.5 block italic border-t border-ink-1/5 pt-1">{q.rewardText}</span>
+                        </div>
                       ))}
                     </div>
                   </div>
-                ))}
-                {/* End Turn card */}
-                <div className="build-card" onClick={handleEndTurn} style={{ borderColor: 'rgba(158,209,189,.25)', background: 'rgba(27,77,62,.35)' }}>
-                  <div style={{ width: 52, height: 52, borderRadius: 12, background: 'rgba(158,209,189,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 26, color: '#9ed1bd' }}>arrow_forward</span>
-                  </div>
-                  <span className="label-caps" style={{ color: '#9ed1bd', textAlign: 'center', fontSize: 9 }}>RUNDE</span>
-                  <span className="label-caps" style={{ color: '#9ed1bd', textAlign: 'center', fontSize: 9 }}>BEENDEN</span>
-                </div>
+                )}
+
               </div>
             )}
 
-            {/* BAUEN tab */}
-            {buildSheetTab === 'bauen' && (
-              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }} className="no-scrollbar">
-                {BUILDINGS_CATALOG.map(b => {
-                  const resNode = b.researchRequired ? researchNodes.find(n => n.id === b.researchRequired) : null;
-                  const locked = resNode ? !resNode.unlocked : false;
-                  const cost = getEffectiveCost(b, activeBuildCard?.strength || 1, researchNodes);
-                  return (
-                    <div
-                      key={b.id}
-                      className={`build-card${selectedBuilding?.id === b.id ? ' selected' : ''}${locked ? ' locked' : ''}`}
-                      onClick={() => {
-                        if (locked) return;
-                        setSelectedBuilding(selectedBuilding?.id === b.id ? null : b);
-                        setSelectedCardId('act_build');
-                      }}
-                    >
-                      <div style={{ width: 52, height: 52, borderRadius: 12, background: b.category === 'water' ? 'rgba(78,179,211,.12)' : b.category === 'ecology' || b.category === 'fauna' ? 'rgba(118,192,67,.10)' : 'rgba(166,137,102,.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
-                        {b.icon}
-                      </div>
-                      <span className="label-caps" style={{ color: '#c0c9c3', textAlign: 'center', fontSize: 8, lineHeight: 1.3 }}>
-                        {b.name.slice(0, 14).toUpperCase()}
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: 10, color: '#9ed1bd' }}>payments</span>
-                        <span className="label-caps" style={{ color: '#9ed1bd', fontSize: 9 }}>{cost}€</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+            {/* 2. Vertical HUD Icon Dock */}
+            <div className="w-full md:w-[60px] bg-parch-0 border border-ink-1/10 rounded-2xl p-2 md:p-2.5 flex flex-row md:flex-col gap-2.5 items-center justify-around md:justify-start shadow-md h-auto md:h-full select-none shrink-0 z-20">
+              <span className="font-serif font-bold text-[8px] text-ink-3 tracking-widest uppercase text-center hidden md:block select-none leading-none mb-1">
+                Menü
+              </span>
+
+              {/* 2A. Tile Inspection button */}
+              <button
+                onClick={() => setActiveRightMenu(activeRightMenu === 'inspection' ? null : 'inspection')}
+                className={`group relative w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center border transition-all duration-300 cursor-pointer ${
+                  activeRightMenu === 'inspection'
+                    ? 'bg-ink-1 text-parch-0 border-ink-1 scale-105 shadow-md shadow-ink-1/15'
+                    : 'bg-parch-2 text-ink-2 border-ink-1/10 hover:bg-parch-3 hover:text-ink-0 hover:border-ink-1/30'
+                }`}
+                title="Kachel-Inspektion"
+              >
+                <MapPin size={20} />
+                {selectedCoord && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-eco-primary border border-parch-0 rounded-full" />
+                )}
+                {/* Desktop tooltip popup */}
+                <span className="absolute right-14 top-1/2 -translate-y-1/2 bg-ink-0 text-parch-0 text-[10px] font-serif px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block whitespace-nowrap z-50">
+                  📍 Kachel-Beschreibung
+                </span>
+              </button>
+
+              {/* 2B. Factory console button */}
+              <button
+                onClick={() => setActiveRightMenu(activeRightMenu === 'factory' ? null : 'factory')}
+                className={`group relative w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center border transition-all duration-300 cursor-pointer ${
+                  activeRightMenu === 'factory'
+                    ? 'bg-ink-1 text-parch-0 border-ink-1 scale-105 shadow-md shadow-ink-1/15'
+                    : 'bg-parch-2 text-ink-2 border-ink-1/10 hover:bg-parch-3 hover:text-ink-0 hover:border-ink-1/30'
+                }`}
+                title="Schoellershammer Fabrik-Steuerung"
+              >
+                <Factory size={20} />
+                <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-parch-0 ${
+                  stats.paperFactoryMode === 'Renaturiert' ? 'bg-eco-primary' : 'bg-red-500 animate-pulse'
+                }`} />
+                {/* Desktop tooltip popup */}
+                <span className="absolute right-14 top-1/2 -translate-y-1/2 bg-ink-0 text-parch-0 text-[10px] font-serif px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block whitespace-nowrap z-50">
+                  🏭 Schoellershammer Steuerung
+                </span>
+              </button>
+
+              {/* 2C. Species tracker button */}
+              <button
+                onClick={() => setActiveRightMenu(activeRightMenu === 'species' ? null : 'species')}
+                className={`group relative w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center border transition-all duration-300 cursor-pointer ${
+                  activeRightMenu === 'species'
+                    ? 'bg-ink-1 text-parch-0 border-ink-1 scale-105 shadow-md shadow-ink-1/15'
+                    : 'bg-parch-2 text-ink-2 border-ink-1/10 hover:bg-parch-3 hover:text-ink-0 hover:border-ink-1/30'
+                }`}
+                title="Arten-Erfassung & Biologie"
+              >
+                <Fish size={20} />
+                {/* Discovered species count bubble */}
+                <span className="absolute -top-1.5 -right-1.5 bg-blue-500 text-white font-mono text-[8.5px] font-bold px-1.5 py-0.2 rounded-full leading-none">
+                  {speciesList.length}
+                </span>
+                {/* Desktop tooltip popup */}
+                <span className="absolute right-14 top-1/2 -translate-y-1/2 bg-ink-0 text-parch-0 text-[10px] font-serif px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block whitespace-nowrap z-50">
+                  🐟 Arten-Flora & Fauna
+                </span>
+              </button>
+
+              {/* 2D. Research panel button */}
+              <button
+                onClick={() => setActiveRightMenu(activeRightMenu === 'research' ? null : 'research')}
+                className={`group relative w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center border transition-all duration-300 cursor-pointer ${
+                  activeRightMenu === 'research'
+                    ? 'bg-ink-1 text-parch-0 border-ink-1 scale-105 shadow-md shadow-ink-1/15'
+                    : 'bg-parch-2 text-ink-2 border-ink-1/10 hover:bg-parch-3 hover:text-ink-0 hover:border-ink-1/30'
+                }`}
+                title="Forschungsbaum & Entwicklung"
+              >
+                <FlaskConical size={20} />
+                {stats.researchPoints > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-purple-600 text-white font-mono text-[8.5px] font-bold px-1.5 py-0.2 rounded-full leading-none animate-pulse">
+                    +{stats.researchPoints}
+                  </span>
+                )}
+                {/* Desktop tooltip popup */}
+                <span className="absolute right-14 top-1/2 -translate-y-1/2 bg-ink-0 text-parch-0 text-[10px] font-serif px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block whitespace-nowrap z-50">
+                  🧪 Forschungsbaum
+                </span>
+              </button>
+
+              {/* 2E. Active Quests button */}
+              <button
+                onClick={() => setActiveRightMenu(activeRightMenu === 'quests' ? null : 'quests')}
+                className={`group relative w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center border transition-all duration-300 cursor-pointer ${
+                  activeRightMenu === 'quests'
+                    ? 'bg-ink-1 text-parch-0 border-ink-1 scale-105 shadow-md shadow-ink-1/15'
+                    : 'bg-parch-2 text-ink-2 border-ink-1/10 hover:bg-parch-3 hover:text-ink-0 hover:border-ink-1/30'
+                }`}
+                title="Behörden-Aufträge (Quests)"
+              >
+                <Scroll size={20} />
+                {quests.filter(q => q.status !== 'completed').length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-amber-600 text-white font-mono text-[8.5px] font-bold px-1.5 py-0.2 rounded-full leading-none shadow-sm">
+                    {quests.filter(q => q.status !== 'completed').length}
+                  </span>
+                )}
+                {/* Desktop tooltip popup */}
+                <span className="absolute right-14 top-1/2 -translate-y-1/2 bg-ink-0 text-parch-0 text-[10px] font-serif px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block whitespace-nowrap z-50">
+                  👑 Quests & Aufträge
+                </span>
+              </button>
+
+            </div>
+
+          </aside>
         )}
       </main>
 
-      {/* ══ BOTTOM NAVIGATION ══ */}
-      <nav className="bottom-nav" style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '6px 4px 10px', zIndex: 40 }}>
-        {([
-          { id: 'simulation', icon: 'map',          label: 'Karte' },
-          { id: 'stats',      icon: 'analytics',    label: 'Stats' },
-          { id: 'history',    icon: 'history_edu',  label: 'Missionen' },
-          { id: 'build',      icon: 'science',      label: 'Forschung' },
-        ] as const).map(tab => (
-          <button key={tab.id} className={`nav-item${activeNavTab === tab.id ? ' active' : ''}`} onClick={() => setActiveNavTab(tab.id)} style={{ border: 'none', cursor: 'pointer' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 22 }}>{tab.icon}</span>
-            <span className="label-caps" style={{ fontSize: 9 }}>{tab.label}</span>
-          </button>
-        ))}
-      </nav>
+      {/* ── FOOTER: Baukatalog / measures ribbon & End Turn Button ── */}
+      <footer className="bg-parch-0/80 border border-ink-1/10 rounded-2xl p-2.5 mx-4 mb-3 flex flex-col md:grid md:grid-cols-[1fr_210px] gap-3 items-stretch justify-between shadow-lg z-20 backdrop-blur-md">
+        
+        {/* Horizontal scrollable measures catalog selection */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          {selectedCardId === 'act_build' ? (
+            <div className="w-full">
+              <BuildCatalog
+                onSelectBuilding={b => setSelectedBuilding(b)}
+                selectedBuildingId={selectedBuilding?.id || null}
+                budget={stats.budget}
+                activeCardStrength={cards.find(c => c.id === 'act_build')?.strength || 1}
+                unlockedResearchIds={researchNodes.filter(n => n.unlocked).map(n => n.id)}
+              />
+            </div>
+          ) : (
+            <div className="w-full flex items-stretch gap-3 bg-parch-1/80 border border-ink-1/10 rounded-xl p-2 shadow-inner">
+              {(() => {
+                const activeCardIdForDetail = hoveredCardId || selectedCardId;
+                const card = cards.find(c => c.id === activeCardIdForDetail);
+                if (!card) {
+                  return (
+                    <div className="w-full flex flex-col gap-2 p-1.5 select-none">
+                      {showTipSystem ? (
+                        <div className="relative flex items-center justify-between bg-eco-primary/5 border border-eco-primary/10 rounded-lg py-1 px-2.5 pr-8 text-left">
+                          <p className="font-serif italic text-ink-2 text-xs leading-snug">
+                            💡 Wähle die Aktionskarte <span className="font-bold text-ink-1">"Bauen & Errichten (🏗️)"</span> links aus, um den Baukatalog zu öffnen, oder klicke eine andere Karte an, um sie auszuspielen.
+                          </p>
+                          <button
+                            onClick={() => setShowTipSystem(false)}
+                            className="absolute top-1/2 -translate-y-1/2 right-2 text-ink-3 hover:text-ink-1 p-1 hover:bg-parch-2 rounded transition-colors text-xs font-bold"
+                            title="Tipps verbergen"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : null}
 
-      {/* ══ MODALS ══ */}
+                      {/* Control Panel Dashboard */}
+                      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-left w-full">
+                        {/* Map-Overlays (Atlas Filter) */}
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[9px] text-ink-3 font-bold uppercase tracking-wider">Atlas-Ebene:</span>
+                          <div className="flex bg-parch-0 border border-ink-1/10 rounded px-1 py-0.5 gap-0.5 shadow-sm">
+                            {(
+                              [
+                                { id: 'none', label: 'Aus' },
+                                { id: 'wrrl', label: '🌊 WRRL' },
+                                { id: 'ffh', label: '🌿 FFH' },
+                                { id: 'flood', label: '⚠️ Flut' }
+                              ] as const
+                            ).map(overlay => (
+                              <button
+                                key={overlay.id}
+                                onClick={() => setActiveOverlay(overlay.id)}
+                                className={`px-1.5 py-0.5 rounded text-[9.5px] font-serif font-bold border transition-all ${
+                                  activeOverlay === overlay.id
+                                    ? 'bg-ink-1 text-parch-0 border-ink-1 shadow-sm'
+                                    : 'bg-transparent text-ink-1 border-transparent hover:bg-parch-3/40'
+                                }`}
+                              >
+                                {overlay.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
 
+                        {/* Sidebar controls */}
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[9px] text-ink-3 font-bold uppercase tracking-wider">Ansichten:</span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setShowLeftSidebar(!showLeftSidebar)}
+                              className={`px-2 py-0.5 rounded text-[9.5px] font-serif font-bold border transition-all ${
+                                showLeftSidebar 
+                                  ? 'bg-eco-primary/10 text-eco-primary border-eco-primary/20' 
+                                  : 'bg-parch-2/60 text-ink-2 border-transparent hover:bg-parch-2'
+                              }`}
+                            >
+                              🏗️ Aktionen {showLeftSidebar ? 'An' : 'Aus'}
+                            </button>
+                            <button
+                              onClick={() => setShowRightSidebar(!showRightSidebar)}
+                              className={`px-2 py-0.5 rounded text-[9.5px] font-serif font-bold border transition-all ${
+                                showRightSidebar 
+                                  ? 'bg-eco-primary/10 text-eco-primary border-eco-primary/20' 
+                                  : 'bg-parch-2/60 text-ink-2 border-transparent hover:bg-parch-2'
+                              }`}
+                            >
+                              📜 Details {showRightSidebar ? 'An' : 'Aus'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Compact actions button */}
+                        <div className="flex items-center gap-2.5 ml-auto">
+                          {!showTipSystem && (
+                            <button
+                              onClick={() => setShowTipSystem(true)}
+                              className="px-2 py-0.5 text-[10px] font-serif font-semibold text-eco-primary hover:bg-eco-primary/5 rounded border border-eco-primary/10 flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <span>💡 Tipps</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setShowTutorial(true);
+                              setTutorialStep(0);
+                            }}
+                            className="p-1 text-ink-3 hover:text-ink-1 hover:bg-parch-2 rounded flex items-center gap-1 text-[10px] font-serif transition-colors"
+                            title="Anleitung anzeigen"
+                          >
+                            <HelpCircle className="w-3.5 h-3.5 text-ink-2" />
+                            <span>Anleitung</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                const details = CARD_DETAILS[card.id] || {
+                  title: card.name,
+                  subtitle: "Aktion",
+                  effect: "Wähle diese Aktion, um strategische Vorteile freizuschalten.",
+                  tip: "Klicke zum Interagieren.",
+                  strengthLabel: "Belohnung"
+                };
+                const renderedStrengthEffect = getCardStrengthEffectResult(card.id, card.strength);
+                return (
+                  <div className="flex items-start gap-2.5 w-full">
+                    <div className="text-2xl bg-parch-2 p-2 rounded-lg border border-ink-1/10 flex items-center justify-center shrink-0 w-11 h-11 shadow-sm select-none">
+                      {card.emoji}
+                    </div>
+                    <div className="flex-1 flex flex-col gap-1 text-left min-w-0">
+                      <div className="flex items-center gap-2 select-none">
+                        <h4 className="font-serif font-bold text-xs uppercase tracking-wide text-ink-0 leading-none">{details.title}</h4>
+                        <span className="text-[7.5px] font-mono bg-parch-3 text-ink-2 px-1 py-0.5 rounded uppercase tracking-wider font-bold leading-none">
+                          {details.subtitle}
+                        </span>
+                        
+                        <div className="hidden sm:flex items-center gap-1.5 font-mono text-[9px] text-ink-3 ml-auto">
+                          <span>Aktionsstärke:</span>
+                          <span className="font-bold text-eco-primary text-xs leading-none">{card.strength}/5</span>
+                          <div className="flex gap-0.5">
+                            {[1, 2, 3, 4, 5].map(idx => (
+                              <div
+                                key={idx}
+                                className={`w-0.75 h-1.5 rounded-full ${
+                                  idx <= card.strength ? 'bg-eco-primary' : 'bg-parch-3'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-[10.5px] leading-relaxed text-ink-1 font-sans">
+                        {details.effect}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 border-t border-dashed border-ink-1/10 pt-0.5">
+                        <div className="flex items-center gap-1 select-none">
+                          <span className="text-[#604b35] font-mono text-[8px] uppercase tracking-wider">{details.strengthLabel}:</span>
+                          <span className="font-bold text-eco-primary font-mono text-[9px]">{renderedStrengthEffect}</span>
+                        </div>
+                        {showTipSystem ? (
+                          <div className="flex items-center gap-1.5 sm:ml-auto">
+                            <span className="text-ink-3 tracking-wide text-[9.5px] italic">
+                              💡 {details.tip}
+                            </span>
+                            <button 
+                              onClick={() => setShowTipSystem(false)}
+                              className="text-ink-3 hover:text-ink-1 p-0.5 hover:bg-parch-3 rounded transition-colors text-[9px]"
+                              title="Tipp verbergen"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setShowTipSystem(true)}
+                            className="text-eco-primary hover:underline text-[9.5px] font-serif sm:ml-auto flex items-center gap-1 cursor-pointer transition-all"
+                          >
+                            <span>💡 Tipp</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+
+        {/* Global Turn Controls */}
+        <div className="flex flex-col justify-between p-2 bg-parch-3 border border-ink-1/10 rounded-xl shrink-0">
+          <div className="flex items-center justify-between gap-1 border-b border-dashed border-ink-1/10 pb-1 px-1 mt-0.5 select-none">
+            <div className="flex flex-col text-left">
+              <span className="text-[8px] text-ink-3 font-mono leading-none font-bold">CO₂-FUẞABDRUCK</span>
+              <span className={`text-[10.5px] font-serif font-bold leading-none mt-1 ${getCO2Rating(stats.co2Footprint).style}`}>
+                {stats.co2Footprint}t ({getCO2Rating(stats.co2Footprint).text})
+              </span>
+            </div>
+            
+            <div className="flex flex-col text-right">
+              <span className="text-[8px] text-ink-3 font-mono leading-none font-bold">AKZEPTANZ</span>
+              <span className={`text-[10.5px] font-serif font-style font-semibold leading-none ${getAcceptanceLabel(stats.citizenAcceptance).style}`}>
+                {stats.citizenAcceptance}% ({getAcceptanceLabel(stats.citizenAcceptance).text})
+              </span>
+            </div>
+          </div>
+
+          <div className="flex gap-1.5 mt-1.5">
+            {/* Undo Action */}
+            <button
+              onClick={handleUndo}
+              disabled={undoHistory.length === 0}
+              className={`p-1.5 rounded-lg border flex items-center justify-center font-serif text-xs font-bold shrink-0 transition-all ${
+                undoHistory.length > 0
+                  ? 'bg-parch-0 text-ink-1 border-ink-1/20 hover:border-ink-1 active:bg-parch-2 cursor-pointer'
+                  : 'bg-parch-2/40 text-ink-3/30 border-ink-1/10 cursor-not-allowed opacity-55'
+              }`}
+              title="Undoletzter Schritt"
+            >
+              <Undo className="w-4 h-4" />
+            </button>
+
+            {/* End Turn trigger */}
+            <button
+              onClick={handleEndTurn}
+              className="flex-1 py-1.5 rounded-lg font-serif font-bold text-xs uppercase tracking-wider text-white bg-eco-primary hover:brightness-105 active:brightness-95 shadow-md flex items-center justify-center gap-1 cursor-pointer"
+            >
+              Nächste Runde →
+            </button>
+          </div>
+        </div>
+
+      </footer>
+
+      {/* ── MODAL: CLIMATE EVENTS ── */}
       {activeEvent && (
-        <EventModal event={activeEvent} onChoice={handleResolveEvent} />
+        <EventModal
+          event={activeEvent}
+          budget={stats.budget}
+          researchPoints={stats.researchPoints}
+          onChoice={handleResolveEvent}
+        />
       )}
 
+      {/* ── MODAL: TABLET WELCOME TUTORIAL ── */}
       {showTutorial && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(13,20,23,.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: '#1a2124', border: '1px solid rgba(255,255,255,.14)', borderRadius: 20, padding: 24, maxWidth: 380, width: '100%' }} className="animate-slide-up">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <span className="material-symbols-outlined" style={{ color: '#9ed1bd', fontSize: 22 }}>eco</span>
-              <span style={{ fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 800, fontSize: 15, color: '#9ed1bd' }}>RurNova</span>
-              <span className="label-caps" style={{ color: '#8a938e', marginLeft: 'auto', fontSize: 9 }}>{tutorialStep + 1}/{TUTORIAL_STEPS.length}</span>
+        <div className="fixed inset-0 bg-ink-0/70 backdrop-blur-sm z-[99999] flex items-center justify-center p-4">
+          <div className="bg-parch-0 border-2 border-ink-1 rounded-xl shadow-2xl p-5 max-w-md w-full relative sm:p-6 paper-card">
+            {/* Corners */}
+            <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-ink-3" />
+            <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-ink-3" />
+            
+            <h2 className="font-serif font-bold text-lg text-ink-0 text-center tracking-medium mt-1">
+              {TUTORIAL_STEPS[tutorialStep].title}
+            </h2>
+
+            <p className="text-sm text-ink-1 italic leading-relaxed text-center font-sans mt-4">
+              {TUTORIAL_STEPS[tutorialStep].text}
+            </p>
+
+            <div className="flex items-center justify-between mt-6">
+              <span className="font-mono text-xs text-ink-3">
+                {tutorialStep + 1} von {TUTORIAL_STEPS.length}
+              </span>
+              
+              <button
+                onClick={() => {
+                  if (tutorialStep < TUTORIAL_STEPS.length - 1) {
+                    setTutorialStep(prev => prev + 1);
+                  } else {
+                    setShowTutorial(false);
+                  }
+                }}
+                className="px-4 py-2 rounded bg-eco-primary text-white font-serif font-bold text-xs tracking-wide shadow-md"
+              >
+                {tutorialStep === TUTORIAL_STEPS.length - 1 ? 'Starten' : 'Weiter →'}
+              </button>
             </div>
-            <h2 style={{ fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 700, fontSize: 18, color: '#dde4e7', marginBottom: 10 }}>{TUTORIAL_STEPS[tutorialStep].title}</h2>
-            <p style={{ fontSize: 14, color: '#c0c9c3', lineHeight: 1.6 }}>{TUTORIAL_STEPS[tutorialStep].text}</p>
-            <div style={{ display: 'flex', gap: 4, marginTop: 16 }}>
-              {TUTORIAL_STEPS.map((_, i) => (
-                <div key={i} style={{ height: 3, flex: 1, borderRadius: 2, background: i <= tutorialStep ? '#9ed1bd' : 'rgba(255,255,255,.12)' }} />
-              ))}
-            </div>
-            <button
-              onClick={() => tutorialStep < TUTORIAL_STEPS.length - 1 ? setTutorialStep(p => p + 1) : setShowTutorial(false)}
-              style={{ width: '100%', marginTop: 16, padding: '12px', borderRadius: 12, background: 'rgba(158,209,189,.18)', border: '1px solid rgba(158,209,189,.4)', color: '#9ed1bd', fontFamily: '"Plus Jakarta Sans",sans-serif', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
-            >
-              {tutorialStep === TUTORIAL_STEPS.length - 1 ? '🌿 Simulation starten' : 'Weiter →'}
-            </button>
           </div>
         </div>
       )}
 
+      {/* ── MODAL: ACTION GAME FEEDBACK ── */}
       <GameFeedbackOverlay
         notification={pendingFeedback}
         onClose={() => setPendingFeedback(null)}
         onConfirm={handleConfirmStagedAction}
         onCancel={handleCancelStagedAction}
       />
-
-      {(stats.gamePhase === 'end_win' || stats.gamePhase === 'end_collapse') && (
-        <GameEndScreen
-          won={stats.gamePhase === 'end_win'}
-          stats={stats}
-          speciesList={speciesList}
-          onRestart={() => {
-            initGrid();
-            setStats({ round: 1, year: 2026, season: 0, budget: 25, researchPoints: 3, naturePoints: 0, globalWrrl: 42, globalFfh: 61, continuity: 12, climateRisk: 35, citizenAcceptance: 73, biosecurity: 62, renewableEnergy: 8, co2Footprint: 142, paperFactoryMode: 'Vollbetrieb', factoryCooldown: 0, gamePhase: 'playing' });
-            setCards(INITIAL_ACTION_CARDS);
-            setResearchNodes(RESEARCH_TECH_TREE);
-            setSpeciesList(BIOTOP_SPECIES);
-            setQuests(STAKEHOLDER_QUESTS_DATA);
-            setUndoHistory([]);
-          }}
-        />
-      )}
 
     </div>
   );

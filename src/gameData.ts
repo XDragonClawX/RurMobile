@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BuildingType, ActionCard, ResearchNode, Quest, ClimateEvent, Species, TerrainType } from './types';
+import { BuildingType, ActionCard, ResearchNode, Quest, ClimateEvent, Species } from './types';
 
 export const BUILDINGS_CATALOG: BuildingType[] = [
   // 🌿 ecology
@@ -14,8 +14,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'ecology',
     icon: '〰️',
     description: 'Verbindet alte Flussschleifen wieder mit der Rur.',
-    effect: '+5% WRRL-Güte, +8% FFH-Wert, +4% Durchgängigkeit.',
-    allowedTerrain: ['Water', 'Auwald', 'Wiese'] as TerrainType[]
+    effect: '+5% WRRL-Güte, +8% FFH-Wert, +4% Durchgängigkeit.'
   },
   {
     id: 'auenwald',
@@ -24,8 +23,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'ecology',
     icon: '🌲',
     description: 'Pflanzt standortgerechte Erlen & Eschen am See/Flussufer.',
-    effect: '+3% FFH, +5% Feuchtigkeit, speichert CO₂ (−5t).',
-    allowedTerrain: ['Wiese', 'Auwald', 'Acker'] as TerrainType[]
+    effect: '+3% FFH, +5% Feuchtigkeit, speichert CO₂ (−5t).'
   },
   {
     id: 'totholz',
@@ -34,8 +32,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'ecology',
     icon: '🪵',
     description: 'Sorgt für Struktur & Verstecke im Flusslauf.',
-    effect: '+6% Artenvielfalt, +3% WRRL-Güte, geringe Kosten.',
-    allowedTerrain: ['Water', 'Auwald'] as TerrainType[]
+    effect: '+6% Artenvielfalt, +3% WRRL-Güte, geringe Kosten.'
   },
   {
     id: 'ufer_entfesselung',
@@ -44,8 +41,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'ecology',
     icon: '🏞️',
     description: 'Beseitigt steinerne Uferbefestigungen für mehr Dynamik.',
-    effect: '+7% WRRL, +4% FFH-Wert, senkt Flutrisiko.',
-    allowedTerrain: ['Water', 'Auwald', 'Wiese'] as TerrainType[]
+    effect: '+7% WRRL, +4% FFH-Wert, senkt Flutrisiko.'
   },
   {
     id: 'kiesbett',
@@ -54,8 +50,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'ecology',
     icon: '🪨',
     description: 'Schüttet Flusskies an Ausgängen von Bächen auf.',
-    effect: '+8% Forellen-Bestand, +2% WRRL-Güte, billig.',
-    allowedTerrain: ['Water', 'Auwald'] as TerrainType[]
+    effect: '+8% Forellen-Bestand, +2% WRRL-Güte, billig.'
   },
 
   // 🌊 water
@@ -66,8 +61,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'water',
     icon: '🐟',
     description: 'Ermöglicht Fischen das Umgehen von Wehren.',
-    effect: '+15% Durchgängigkeit des gesamten Flusses!',
-    allowedTerrain: ['Water'] as TerrainType[]
+    effect: '+15% Durchgängigkeit des gesamten Flusses!'
   },
   {
     id: 'deichrueck',
@@ -76,8 +70,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'water',
     icon: '🌊',
     description: 'Gibt dem Strom Platz, sich bei Hochwasser auszubreiten.',
-    effect: 'Maximaler Hochwasserschutz im gesamten Segment, +8% FFH.',
-    allowedTerrain: ['Wiese', 'Acker', 'Auwald'] as TerrainType[]
+    effect: 'Maximaler Hochwasserschutz im gesamten Segment, +8% FFH.'
   },
   {
     id: 'polder',
@@ -86,8 +79,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'water',
     icon: '💧',
     description: 'Gesteuerter Überflutungsbereich bei Starkregen.',
-    effect: 'Senkt das Klimarisiko drastisch um 15%.',
-    allowedTerrain: ['Wiese', 'Acker', 'Auwald'] as TerrainType[]
+    effect: 'Senkt das Klimarisiko drastisch um 15%.'
   },
   {
     id: 'sohlgleite',
@@ -96,8 +88,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'water',
     icon: '〰️',
     description: 'Ersetzt stufenartige Abstürze im Flussbett.',
-    effect: '+10% Durchgängigkeit, −1 € Rabatt ab Forschung.',
-    allowedTerrain: ['Water'] as TerrainType[]
+    effect: '+10% Durchgängigkeit, −1 € Rabatt ab Forschung.'
   },
   {
     id: 'regenbecken',
@@ -106,8 +97,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'water',
     icon: '⚗️',
     description: 'Puffert Schmutz- & Regenwassereintrag bei Extremwetter.',
-    effect: '+5% Biotopsicherheit, stoppt akuten Bakterieneintrag.',
-    allowedTerrain: ['Wiese', 'Acker', 'Gewerbe'] as TerrainType[]
+    effect: '+5% Biotopsicherheit, stoppt akuten Bakterieneintrag.'
   },
 
   // 🦫 fauna
@@ -118,8 +108,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'fauna',
     icon: '🦫',
     description: 'Schafft Ruhezonen für den eurasischen Baumeister.',
-    effect: '+15% Biber-Bestand, +5% Artenvielfalt.',
-    allowedTerrain: ['Auwald', 'Wiese', 'Water'] as TerrainType[]
+    effect: '+15% Biber-Bestand, +5% Artenvielfalt.'
   },
   {
     id: 'lachs_zucht',
@@ -129,8 +118,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     icon: '🐟',
     description: 'Züchtet Junglachse für die Auswilderung in der Rur.',
     effect: 'Erhöht Lachs-Vorkommen massiv (braucht Durchgängigkeit!)',
-    researchRequired: 'lachs_nrw',
-    allowedTerrain: ['Water', 'Auwald'] as TerrainType[]
+    researchRequired: 'lachs_nrw'
   },
   {
     id: 'eisvogel_nist',
@@ -139,8 +127,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'fauna',
     icon: '🐦',
     description: 'Steile Brutwände an abgelegenen Prallufern einrichten.',
-    effect: '+20% Eisvogel-Bestand, hohe Symbolwirkung (+4% Akzeptanz).',
-    allowedTerrain: ['Auwald', 'Water'] as TerrainType[]
+    effect: '+20% Eisvogel-Bestand, hohe Symbolwirkung (+4% Akzeptanz).'
   },
   {
     id: 'insektenhotel',
@@ -149,8 +136,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'fauna',
     icon: '🌸',
     description: 'Nahrungs- & Nistplätze für heimische Bestäuber.',
-    effect: '+10% Feuerfalter, sehr billig zu bauen.',
-    allowedTerrain: ['Wiese', 'Acker', 'Auwald'] as TerrainType[]
+    effect: '+10% Feuerfalter, sehr billig zu bauen.'
   },
   {
     id: 'natura_zentrum',
@@ -159,8 +145,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'fauna',
     icon: '🏕️',
     description: 'Bürgerbündnis & Lehrpfad für Umweltbildung.',
-    effect: '+22% Bürgerakzeptanz, dämpft den NIMBY-Effekt.',
-    allowedTerrain: ['Wiese', 'Auwald', 'Acker', 'Siedlung'] as TerrainType[]
+    effect: '+22% Bürgerakzeptanz, dämpft den NIMBY-Effekt.'
   },
 
   // 🏕️ tourism
@@ -171,8 +156,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'tourism',
     icon: '🏕️',
     description: 'Naturerbe-Pfad mit begrenztem Zugang für Wanderer.',
-    effect: '+1€ Rundeneinkommen, +6% Akzeptanz, −1% FFH-Druck.',
-    allowedTerrain: ['Wiese', 'Auwald', 'Acker'] as TerrainType[]
+    effect: '+1€ Rundeneinkommen, +6% Akzeptanz, −1% FFH-Druck.'
   },
   {
     id: 'besucherzentrum',
@@ -181,8 +165,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'tourism',
     icon: '🧱',
     description: 'Großes Infocenter mit Gastronomie & Ausstellungen.',
-    effect: '+2€ Rundeneinkommen, +12% Akzeptanz.',
-    allowedTerrain: ['Wiese', 'Acker', 'Siedlung', 'Gewerbe'] as TerrainType[]
+    effect: '+2€ Rundeneinkommen, +12% Akzeptanz.'
   },
   {
     id: 'campingplatz',
@@ -191,8 +174,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'tourism',
     icon: '🏕️',
     description: 'Zeltwiese mit biologischer Abwasserklärung.',
-    effect: '+1€ Einkommen, +5% Akzeptanz.',
-    allowedTerrain: ['Wiese', 'Auwald'] as TerrainType[]
+    effect: '+1€ Einkommen, +5% Akzeptanz.'
   },
   {
     id: 'kanuverleih',
@@ -201,8 +183,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'tourism',
     icon: '🛶',
     description: 'Gesteuerte Wässerungsstelle mit ausgewiesenen Schongebieten.',
-    effect: '+1€ Einkommen, +4% Akzeptanz.',
-    allowedTerrain: ['Water', 'Auwald', 'Wiese'] as TerrainType[]
+    effect: '+1€ Einkommen, +4% Akzeptanz.'
   },
 
   // 🏭 economy
@@ -213,8 +194,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'economy',
     icon: '☀️',
     description: 'Zerstörungsfreie Fischschnecken-Turbine am Wehr.',
-    effect: '+2€ Einkommen, +10% Erneuerbare, schmerzt das WRRL etwas.',
-    allowedTerrain: ['Water'] as TerrainType[]
+    effect: '+2€ Einkommen, +10% Erneuerbare, schmerzt das WRRL etwas.'
   },
   {
     id: 'solarpark',
@@ -223,8 +203,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'economy',
     icon: '☀️',
     description: 'Photovoltaikanlage auf vormaligen Kies-Brachflächen.',
-    effect: '+12% Erneuerbare, −25t CO₂; reduziert Ackerfläche.',
-    allowedTerrain: ['Acker', 'Wiese', 'Gewerbe'] as TerrainType[]
+    effect: '+12% Erneuerbare, −25t CO₂; reduziert Ackerfläche.'
   },
   {
     id: 'windkraft',
@@ -233,8 +212,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'economy',
     icon: '🌬️',
     description: 'Windrad im Hügelland aus genossenschaftlicher Hand.',
-    effect: '+15% Erneuerbare, −35t CO₂; mäßige Akzeptanz.',
-    allowedTerrain: ['Wiese', 'Acker'] as TerrainType[]
+    effect: '+15% Erneuerbare, −35t CO₂; mäßige Akzeptanz.'
   },
   {
     id: 'intensiv_farm',
@@ -243,8 +221,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'economy',
     icon: '🚜',
     description: 'Gülle- & Düngereinsatz für maximalen Getreideertrag.',
-    effect: '+3€ Einkommen, aber ⚠ −8% WRRL-Güte (Überdüngung).',
-    allowedTerrain: ['Acker', 'Wiese'] as TerrainType[]
+    effect: '+3€ Einkommen, aber ⚠ −8% WRRL-Güte (Überdüngung).'
   },
   {
     id: 'extensive_weide',
@@ -253,8 +230,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'economy',
     icon: '🐄',
     description: 'Robustes Glanvieh erhält Offenländer ohne Kunstdünger.',
-    effect: '+1€ Einkommen, +5% FFH, harmonisch mit Naturschutz.',
-    allowedTerrain: ['Wiese', 'Acker', 'Auwald'] as TerrainType[]
+    effect: '+1€ Einkommen, +5% FFH, harmonisch mit Naturschutz.'
   },
   {
     id: 'klaerwerk_upgrade',
@@ -263,8 +239,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'economy',
     icon: '⚗️',
     description: 'Modernisierung der 4. Reinigungsstufe gegen Medikamente.',
-    effect: 'Anheben der WRRL-Güte um massive +12% in Düren Mitte.',
-    allowedTerrain: ['Gewerbe', 'Siedlung', 'Wiese'] as TerrainType[]
+    effect: 'Anheben der WRRL-Güte um massive +12% in Düren Mitte.'
   },
 
   // 🚇 infrastructure
@@ -275,8 +250,7 @@ export const BUILDINGS_CATALOG: BuildingType[] = [
     category: 'infrastructure',
     icon: '🚇',
     description: 'Erschließt abgelegene Uferteile für CO₂-freie Mobilität.',
-    effect: 'Gibt 1 € Logistikrabatt für umgebende Bauten, −10t CO₂.',
-    allowedTerrain: ['Wiese', 'Acker', 'Siedlung', 'Gewerbe', 'Auwald'] as TerrainType[]
+    effect: 'Gibt 1 € Logistikrabatt für umgebende Bauten, −10t CO₂.'
   }
 ];
 
@@ -316,8 +290,7 @@ export const RESEARCH_TECH_TREE: ResearchNode[] = [
     unlocked: false,
     requirements: [],
     effect: 'Sohlgleiten werden 1 € günstiger, +10 FFH-Flusspunkte',
-    progress: 0,
-    buildingCostReduction: { buildingId: 'sohlgleite', reduction: 1 }
+    progress: 0
   },
   {
     id: 'green_energy_tech',
@@ -546,122 +519,6 @@ export const STAKEHOLDER_QUESTS_DATA: Quest[] = [
     reward: { budget: 2, research: 1, nature: 10, acceptance: 8 }
   }
 ];
-
-// ── Factory Mode Definitions ──────────────────────────────────────────────────
-export type FactoryModeKey = 'Vollbetrieb' | 'Umrüstung' | 'Stilllegung' | 'Renaturierung';
-
-export interface FactoryModeDefinition {
-  label: string;
-  icon: string;
-  roundIncome: number;        // € per turn (positive = income, negative = cost)
-  researchPerRound: number;   // 🧪 per turn
-  wrrlEffectPerTurn: number;  // WRRL quality delta per turn on Düren water tiles
-  acceptanceBonus: number;    // one-time acceptance change on mode switch
-  switchCost: number;         // one-time budget cost to switch to this mode
-  /** Rounds the mode stays locked after switching */
-  cooldownRounds: number;
-  description: string;
-  flavor: string;
-}
-
-export const FACTORY_MODES: Record<FactoryModeKey, FactoryModeDefinition> = {
-  Vollbetrieb: {
-    label: 'Vollbetrieb',
-    icon: '🏭',
-    roundIncome: 15,
-    researchPerRound: 0,
-    wrrlEffectPerTurn: +0.45,   // pollutes river
-    acceptanceBonus: +10,
-    switchCost: 0,
-    cooldownRounds: 0,
-    description: '+15 €/Runde, +10% Akzeptanz, −15% WRRL im Fluss',
-    flavor: 'Die Papierindustrie läuft unter Volldampf für maximale Wirtschaftlichkeit.'
-  },
-  Umrüstung: {
-    label: 'Umrüstung',
-    icon: '🔧',
-    roundIncome: 5,
-    researchPerRound: 1,
-    wrrlEffectPerTurn: 0,
-    acceptanceBonus: +5,
-    switchCost: 0,
-    cooldownRounds: 2,
-    description: '+5 €/Runde, +1 🧪/Runde, keine Gewässerschäden mehr',
-    flavor: 'Moderne Filteranlagen und ressourceneffiziente Kreisprozesse werden etabliert und schonen die Rur.'
-  },
-  Stilllegung: {
-    label: 'Stilllegung',
-    icon: '⏸️',
-    roundIncome: 0,
-    researchPerRound: 0,
-    wrrlEffectPerTurn: 0,
-    acceptanceBonus: -15,
-    switchCost: 0,
-    cooldownRounds: 1,
-    description: '0 €/Runde, −15% Akzeptanz (Arbeitsplatzverlust), WRRL neutral',
-    flavor: 'Eine temporäre Produktionspause entlastet das lokale Gewässerbiotop.'
-  },
-  Renaturierung: {
-    label: 'Renaturierung',
-    icon: '🌿',
-    roundIncome: -4,
-    researchPerRound: 0,
-    wrrlEffectPerTurn: -0.55,   // purifies river
-    acceptanceBonus: +5,
-    switchCost: 4,
-    cooldownRounds: 0,
-    description: '−4 € Einmalkosten, +15% WRRL-Qualität, +25% Lachsansiedlung',
-    flavor: 'Vollständiger Rückbau und Renaturierung der Industriebrache am Dürener Mittellauf.'
-  }
-};
-
-// ── Helper: Get effective building cost (applies research discounts) ──────────
-/**
- * Returns the final cost of a building after applying:
- *  1. The BUILD action card's strength discount (str 3-4 → −1€, str 5 → −2€)
- *  2. Any unlocked ResearchNode.buildingCostReduction for this building
- */
-export function getEffectiveCost(
-  building: BuildingType,
-  buildCardStrength: number,
-  unlockedNodes: ResearchNode[]
-): number {
-  const strDiscount = buildCardStrength >= 5 ? 2 : buildCardStrength >= 3 ? 1 : 0;
-  const researchDiscount = unlockedNodes
-    .filter(n => n.unlocked && n.buildingCostReduction?.buildingId === building.id)
-    .reduce((sum, n) => sum + (n.buildingCostReduction?.reduction ?? 0), 0);
-  return Math.max(1, building.cost - strDiscount - researchDiscount);
-}
-
-// ── Helper: Rotate action cards (Arche Nova slide rule) ──────────────────────
-/**
- * Applies the Arche Nova card slide rule:
- *  - Played card moves to position 0 / strength 1
- *  - All cards that were at a lower position than the played card
- *    advance one position (and gain +1 strength)
- * Returns the updated card array sorted by position.
- */
-export function rotateActionCard(
-  cards: ActionCard[],
-  playedCardId: string
-): ActionCard[] {
-  const played = cards.find(c => c.id === playedCardId);
-  if (!played) return cards;
-  const oldPosition = played.position;
-
-  const updated = cards.map(c => {
-    if (c.id === playedCardId) {
-      return { ...c, position: 0, strength: 1 };
-    }
-    if (c.position < oldPosition) {
-      const newPos = c.position + 1;
-      return { ...c, position: newPos, strength: newPos + 1 };
-    }
-    return c;
-  });
-
-  return [...updated].sort((a, b) => a.position - b.position);
-}
 
 export const TUTORIAL_STEPS = [
   {

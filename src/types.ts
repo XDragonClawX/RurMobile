@@ -41,8 +41,6 @@ export interface BuildingType {
   description: string;
   effect: string;
   researchRequired?: string | null;
-  /** Terrain types this building may be placed on. Undefined = no restriction. */
-  allowedTerrain?: TerrainType[];
 }
 
 export interface ResearchNode {
@@ -53,8 +51,6 @@ export interface ResearchNode {
   requirements: string[]; // ids of predecessor research
   effect: string;
   progress: number; // 0 to 100
-  /** Flat cost reduction (in €) applied to a specific building via getEffectiveCost(). */
-  buildingCostReduction?: { buildingId: string; reduction: number };
 }
 
 export interface GameStats {
@@ -73,10 +69,6 @@ export interface GameStats {
   renewableEnergy: number; // 0 to 100%
   co2Footprint: number; // in tons
   paperFactoryMode: 'Vollbetrieb' | 'Umrüstung' | 'Stilllegung' | 'Renaturierung';
-  /** Rounds remaining until factory mode can be changed again (0 = free). */
-  factoryCooldown: number;
-  /** Current game phase — controls which UI layers are visible. */
-  gamePhase: 'playing' | 'end_win' | 'end_collapse';
 }
 
 export interface ClimateEventChoice {
